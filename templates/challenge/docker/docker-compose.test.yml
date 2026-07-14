@@ -1,0 +1,20 @@
+services:
+  challenge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: challenge-test:local
+    container_name: challenge-test
+    ports:
+      - "0.0.0.0:18080:80"
+    environment:
+      - GZCTF_FLAG=flag{test_flag_for_local_validation_only}
+      - GZCTF_TEAM_ID=test-team
+    restart: "no"
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

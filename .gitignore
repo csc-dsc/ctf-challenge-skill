@@ -1,0 +1,33 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Docker test artifacts
+docker-compose.override.yml
+
+# Generated challenges (user output)
+*.tar
+*.tgz
+*.tar.gz
+
+# Test artifacts
+test-challenge/
+
+# Temporary files
+*.tmp
+*.log

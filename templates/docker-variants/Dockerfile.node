@@ -1,0 +1,22 @@
+# Node.js Express Dockerfile for CTF challenges
+FROM node:20-alpine
+
+RUN addgroup -S ctf && adduser -S ctf -G ctf -u 10001
+RUN apk add --no-cache curl
+
+WORKDIR /app
+COPY --chown=ctf:ctf package*.json ./
+RUN npm ci --production && npm cache clean --force
+
+COPY --chown=ctf:ctf . .
+
+# start.sh: write flag then start app
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
+EXPOSE 3000
+USER ctf
+CMD ["/start.sh"]

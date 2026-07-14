@@ -1,0 +1,26 @@
+# PWN xinetd Dockerfile for CTF challenges
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xinetd \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r ctf && useradd -r -g ctf -u 10001 -m -d /home/ctf ctf
+
+# Copy challenge binary
+COPY challenge /home/ctf/challenge
+RUN chmod 755 /home/ctf/challenge
+
+# xinetd config
+COPY ctf.xinetd /etc/xinetd.d/ctf
+RUN chmod 644 /etc/xinetd.d/ctf
+
+# Flag placeholder - will be overwritten by GZCTF_FLAG at runtime
+RUN touch /flag && chmod 644 /flag && chown root:ctf /flag
+
+# Start script: write flag then launch xinetd (as root)
+RUN echo '#!/bin/sh\nset -eu\nprintf "%s" "${GZCTF_FLAG:-flag{test}}" > /flag\nchmod 400 /flag\nexec xinetd -dontfork' > /start.sh \
+    && chmod +x /start.sh
+
+EXPOSE 9999
+CMD ["/start.sh"]
