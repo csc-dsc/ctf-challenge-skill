@@ -171,6 +171,64 @@ if [ -d "source" ] && [ "$(ls -A source 2>/dev/null)" ]; then
     fi
 fi
 
+# AWDP checks (checker.py, exp.py, patch)
+if [ -d "awdp" ] && [ "$(ls -A awdp 2>/dev/null)" ]; then
+    echo ""
+    echo "--- AWDP checks ---"
+
+    # Check for MSG_DONTWAIT (Windows incompatible)
+    if grep -r 'MSG_DONTWAIT' awdp/ 2>/dev/null; then
+        echo "  [FAIL] MSG_DONTWAIT found in awdp/ - not available on Windows, use sock.settimeout()"
+        ERRORS=$((ERRORS + 1))
+    fi
+
+    # Check checker.py exists
+    if [ -f "awdp/checker.py" ]; then
+        echo "  [OK] checker.py"
+        # Check for required env vars
+        if grep -q 'AWDP_TARGET_HOST' awdp/checker.py; then
+            echo "  [OK] checker.py uses AWDP_TARGET_HOST"
+        else
+            echo "  [FAIL] checker.py missing AWDP_TARGET_HOST"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  [FAIL] awdp/checker.py missing"
+        ERRORS=$((ERRORS + 1))
+    fi
+
+    # Check exp.py exists
+    if [ -f "awdp/exp.py" ]; then
+        echo "  [OK] exp.py"
+        if grep -q 'AWDP_FLAG' awdp/exp.py; then
+            echo "  [OK] exp.py uses AWDP_FLAG"
+        else
+            echo "  [FAIL] exp.py missing AWDP_FLAG"
+            ERRORS=$((ERRORS + 1))
+        fi
+        # Check exit codes
+        if grep -q 'sys.exit(0)' awdp/exp.py && grep -q 'sys.exit(1)' awdp/exp.py; then
+            echo "  [OK] exp.py has correct exit code logic"
+        else
+            echo "  [WARN] exp.py may not distinguish success (0) vs failure (non-0)"
+            WARNINGS=$((WARNINGS + 1))
+        fi
+    else
+        echo "  [FAIL] awdp/exp.py missing"
+        ERRORS=$((ERRORS + 1))
+    fi
+
+    # Check patch-example
+    if [ -d "awdp/patch-example" ]; then
+        if [ -f "awdp/patch-example/update.sh" ]; then
+            echo "  [OK] patch-example/update.sh"
+        else
+            echo "  [FAIL] patch-example/update.sh missing"
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+fi
+
 # Attachment checks
 if [ -d "attachments" ] && [ "$(ls -A attachments 2>/dev/null)" ]; then
     echo ""

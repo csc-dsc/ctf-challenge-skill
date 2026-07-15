@@ -30,6 +30,26 @@
 
 禁止：模糊用语（"自己试试"）、错误端口、废弃镜像地址、管理端路径或凭据、任何解题提示
 
+## 跨平台 Python 兼容性
+
+Checker.py 和 exp.py 可能在 Windows 上运行（出题人本地测试）。**禁止使用 Windows 不支持的 API**：
+
+| 禁止 | 替代方案 |
+|------|----------|
+| `socket.MSG_DONTWAIT` | `sock.settimeout(0.5)` + try/except `socket.timeout` |
+| `os.kill(pid, signal.SIGKILL)` | `os.kill(pid, signal.SIGTERM)` |
+| `fcntl` 模块 | `socket` 原生方法 |
+| 硬编码 `/tmp/` 路径 | `tempfile.gettempdir()` 或跨平台路径 |
+
+AWDP Checker 和 Exp 中如需非阻塞 socket 读取，使用以下模式：
+```python
+sock.settimeout(0.5)
+try:
+    data = sock.recv(4096)
+except socket.timeout:
+    data = b""
+```
+
 ## 通用自检
 
 - [ ] 标题、分类、难度和分值正确
@@ -38,3 +58,4 @@
 - [ ] 错误答案不得分
 - [ ] 所有文件名仅用安全字符
 - [ ] 无作者个人信息、绝对路径、编辑器缓存
+- [ ] Checker/Exp 无 Windows 不兼容 API（MSG_DONTWAIT 等）
