@@ -1,6 +1,8 @@
 # PHP Apache Dockerfile for CTF challenges
 FROM php:8.2-apache
 
+RUN sed -i 's|http://deb.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources
+
 RUN groupadd -r ctf && useradd -r -g ctf -u 10001 ctf
 
 # Install curl for healthcheck

@@ -1,6 +1,8 @@
 # Node.js Express Dockerfile for CTF challenges
 FROM node:20-alpine
 
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apk/repositories
+
 RUN addgroup -S ctf && adduser -S ctf -G ctf -u 10001
 RUN apk add --no-cache curl
 

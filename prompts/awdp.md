@@ -60,6 +60,67 @@ awdp-category-knowledge-difficulty-v1/
 7. 漏洞必须能被 Exp **稳定复现**
 8. Checker 必须验证**核心业务逻辑**，不只检查 TCP 端口
 
+### Docker 构建上下文（极容易出错）
+
+Dockerfile 在 `docker/` 目录下，`docker build -t xxx docker/` 的上下文就是 `docker/`。
+**Dockerfile 里的 `COPY` 只能访问 docker/ 目录内的文件！**
+
+创建题目时，必须把源码也放到 docker/ 下：
+```bash
+# Web 题：源码在 source/，需要拷到 docker/
+cp source/app.py docker/
+cp source/requirements.txt docker/
+
+# PWN 题：源码在 source/app/，需要拷到 docker/
+cp -r source/app/ docker/app/
+```
+
+**写完 Dockerfile 后必须验证所有 COPY 路径在 docker/ 下都存在！**
+
+### Web 服务 Dockerfile 模板
+
+```dockerfile
+FROM python:3.12-slim
+RUN sed -i 's|http://deb.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN useradd -r -u 10001 ctf
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+RUN chown -R ctf:ctf /app
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:80/ || exit 1
+EXPOSE 80
+USER ctf
+CMD ["/start.sh"]
+```
+
+### PWN 服务 Dockerfile 模板（xinetd + 源码编译）
+
+```dockerfile
+FROM ubuntu:22.04
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+# 注意：PWN 题需要 build-essential（包含 gcc + make + libc6-dev）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xinetd build-essential netcat-openbsd curl && rm -rf /var/lib/apt/lists/*
+RUN groupadd -r ctf && useradd -r -g ctf -u 10001 -m -d /home/ctf ctf
+# 从 docker/app/ 编译（app/ 已提前从 source/app/ 复制过来）
+COPY app/ /home/ctf/app/
+RUN cd /home/ctf/app && make && cp <binary> /home/ctf/ && chmod 755 /home/ctf/<binary> && rm -rf /home/ctf/app
+COPY ctf.xinetd /etc/xinetd.d/ctf
+RUN chmod 644 /etc/xinetd.d/ctf
+RUN touch /flag && chown ctf:ctf /flag && chmod 644 /flag
+RUN apt-get update && apt-get install -y sed grep psmisc && rm -rf /var/lib/apt/lists/*
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD nc -z localhost 9999 || exit 1
+EXPOSE 9999
+USER ctf
+CMD ["/start.sh"]
+```
+
 ## Checker 规范
 
 ### 环境变量
@@ -228,6 +289,17 @@ tar -tzf ../ssti-fix-v1.tgz   # 验证
 8. 修补分计入榜单
 9. 停止比赛后实例和端口全部清理
 10. 确认运行在支持修补的节点（本地容器后端）
+
+## 构建前检查（必做，每次构建前逐条确认）
+
+1. [ ] `docker/` 目录包含了所有 COPY 需要的文件（app.py, requirements.txt, start.sh 等）
+2. [ ] **PWN 题**：`source/app/` 已复制到 `docker/app/`，Makefile 和源码都在
+3. [ ] **PWN 题**：Dockerfile 装了 `build-essential`（不是只装 gcc）
+4. [ ] **Web 题**：`source/app.py`, `source/requirements.txt` 已复制到 `docker/`
+5. [ ] Dockerfile 里有 `USER ctf` 和 `HEALTHCHECK`
+6. [ ] docker-compose.test.yml 端口映射用 `0.0.0.0:xxxxx:yyyy`
+7. [ ] start.sh 有 `set -eu`，用 `exec` 启动主进程
+8. [ ] `/flag` 文件 owner 是 ctf（`chown ctf:ctf /flag`），否则 start.sh 写不进去
 
 ## 自检步骤
 

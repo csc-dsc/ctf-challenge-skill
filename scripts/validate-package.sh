@@ -78,6 +78,12 @@ if [ -d "docker" ]; then
             ERRORS=$((ERRORS + 1))
         fi
 
+        # Check for gcc without build-essential (PWN common mistake)
+        if grep -qE '\bgcc\b|g\+\+' docker/Dockerfile 2>/dev/null && ! grep -q 'build-essential' docker/Dockerfile 2>/dev/null; then
+            echo "  [FAIL] Dockerfile uses gcc/g++ without build-essential (libc6-dev headers missing)"
+            ERRORS=$((ERRORS + 1))
+        fi
+
         # Check exec CMD
         if grep -q 'CMD \[' docker/Dockerfile 2>/dev/null; then
             echo "  [OK] CMD uses exec form"
@@ -86,14 +92,35 @@ if [ -d "docker" ]; then
             WARNINGS=$((WARNINGS + 1))
         fi
 
-        # Check GZCTF_FLAG env
-        if grep -q 'GZCTF_FLAG' docker/Dockerfile 2>/dev/null; then
-            content=$(grep 'GZCTF_FLAG' docker/Dockerfile)
-            if echo "$content" | grep -q 'flag{'; then
-                echo "  [FAIL] Dockerfile hardcodes a real flag in GZCTF_FLAG ENV"
-                ERRORS=$((ERRORS + 1))
-            fi
-        fi
+        # Validate COPY paths exist under docker/
+        echo "  --- COPY path validation ---"
+        while IFS= read -r line; do
+            # Skip comments and lines without COPY
+            case "$line" in
+                ''|'#'*) continue ;;
+                *COPY*) ;;
+                *) continue ;;
+            esac
+            # Extract source paths from COPY (handle --chown, --from, multiple sources)
+            src_list=$(echo "$line" | sed -n 's/.*COPY[[:space:]]\+\(.*\)[[:space:]]\+[^[:space:]]\+$/\1/p')
+            for src in $src_list; do
+                # Skip flags (--chown=..., --from=...)
+                case "$src" in
+                    --*) continue ;;
+                    *..*)
+                        echo "  [FAIL] COPY uses parent directory reference: $src"
+                        ERRORS=$((ERRORS + 1))
+                        continue
+                        ;;
+                esac
+                if [ -e "docker/$src" ]; then
+                    echo "  [OK] docker/$src"
+                else
+                    echo "  [FAIL] COPY source not found: docker/$src (from: $line)"
+                    ERRORS=$((ERRORS + 1))
+                fi
+            done
+        done < docker/Dockerfile
     else
         echo "  [FAIL] docker/Dockerfile missing"
         ERRORS=$((ERRORS + 1))

@@ -1,6 +1,8 @@
 # PWN xinetd Dockerfile for CTF challenges
 FROM ubuntu:22.04
 
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xinetd \
     && rm -rf /var/lib/apt/lists/*

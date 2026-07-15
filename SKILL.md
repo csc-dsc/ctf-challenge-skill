@@ -147,6 +147,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg \
     && rm -rf /var/lib/apt/lists/*
 ```
 
+### C9: Docker 构建上下文 = docker/ 目录
+`docker build` 命令从 `docker/` 目录执行，Dockerfile 中的 `COPY` 只能访问 docker/ 内的文件。
+**创建题目时必须把 Dockerfile 需要的文件全部复制到 docker/ 下：**
+```bash
+# 源码在 source/，Dockerfile 在 docker/ — 必须先复制
+cp source/app.py docker/
+cp source/requirements.txt docker/
+# 或者：cp -r source/app/ docker/app/
+```
+绝对不要在 Dockerfile 里写 `COPY ../source/file .`，这会被 Docker 拒绝。
+
+### C10: PWN 题必须装 build-essential
+编译 C/C++ 源码时，只装 `gcc` 不够（缺 `libc6-dev` 头文件）。直接用 `build-essential` 包：
+```dockerfile
+RUN apt-get install -y build-essential  # 包含 gcc, g++, make, libc6-dev
+```
+
 ---
 
 ## Dockerfile 基线模板
@@ -211,24 +228,32 @@ CMD ["apache2-foreground"]
 ```dockerfile
 FROM ubuntu:22.04
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    xinetd && rm -rf /var/lib/apt/lists/*
+# 换清华源加速（国内必备）
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
 
-RUN groupadd -r ctf && useradd -r -g ctf -u 10001 ctf
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xinetd build-essential netcat-openbsd curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r ctf && useradd -r -g ctf -u 10001 -m -d /home/ctf ctf
+
+# 编译源码（源码须已在 docker/ 目录下）
+COPY app/ /home/ctf/app/
+RUN cd /home/ctf/app && make && cp challenge /home/ctf/ && chmod 755 /home/ctf/challenge && rm -rf /home/ctf/app
 
 COPY ctf.xinetd /etc/xinetd.d/ctf
-COPY challenge /home/ctf/challenge
-COPY flag /flag
-RUN chmod 400 /flag && chown root:ctf /flag
+RUN chmod 644 /etc/xinetd.d/ctf
 
-# 启动脚本：写入 GZCTF_FLAG 后启动 xinetd
-RUN echo '#!/bin/sh\nprintf "%s" "${GZCTF_FLAG}" > /flag\nexec xinetd -dontfork' > /start.sh \
+RUN touch /flag && chown ctf:ctf /flag && chmod 644 /flag
+
+RUN echo '#!/bin/sh\nset -eu\nprintf "%s" "${GZCTF_FLAG:-flag{test}}" > /flag\nchmod 400 /flag\nexec xinetd -dontfork' > /start.sh \
     && chmod +x /start.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD nc -z localhost 9999 || exit 1
 
 EXPOSE 9999
+USER ctf
 CMD ["/start.sh"]
 ```
 
