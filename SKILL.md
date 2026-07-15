@@ -84,6 +84,23 @@ README.md 必须包含：
 - 清理方法：
 ```
 
+## 输出目录
+
+所有生成的题目统一放在 `D:\TASK\` 下，按题型分类：
+
+```
+D:\TASK\
+├── awdp\              # AWDP 题目
+├── dynamic-container\ # 动态容器题
+├── static-container\  # 静态容器题
+├── static-attachment\ # 静态附件题
+├── dynamic-attachment\ # 动态附件题
+├── windows-vm\        # Windows 虚拟机题
+└── theory\            # 理论题
+```
+
+例如：`D:\TASK\awdp\awdp-pwn-bof-easy-v1\`
+
 ## 命名规范
 
 - 题目名：`分类-知识点-难度-版本`，如 `Web-SSTI-Easy-v1`
