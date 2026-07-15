@@ -478,3 +478,8 @@ tar -tzf ../bof-fix-v1.tgz   # 验证内容
 4. 模拟 Exp: `AWDP_TARGET_HOST=127.0.0.1 AWDP_TARGET_PORT=18080 AWDP_FLAG=flag{test} python3 exp.py` → 应该 exit 0
 5. 制作补丁包并测试：打补丁后 Checker 仍 OK，Exp 返回非 0
 6. `docker compose down` → 快速退出
+7. **导出镜像 tar 包**（上传平台用）：
+   ```bash
+   docker save <image-name> -o <challenge-name>.tar
+   ```
+   放在题目根目录下，文件名与题目名一致。
