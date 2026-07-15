@@ -323,6 +323,10 @@ docker compose -f docker/docker-compose.test.yml exec challenge id
 # 7. 停止（应快速退出）
 time docker compose -f docker/docker-compose.test.yml down
 # 应在 10 秒内完成
+
+# 8. 导出镜像 tar 包（平台上传用）
+docker save <image-name> -o <challenge-name>.tar
+# 放在题目根目录下
 ```
 
 ---
@@ -458,6 +462,7 @@ Agent(
 - [ ] docker compose up + curl 可达
 - [ ] 非 root 用户运行
 - [ ] SIGTERM 后 10 秒内退出
+- [ ] `docker save` 镜像 tar 包已导出到题目根目录
 
 ### AWDP（如有）
 - [ ] Checker 正常/异常状态均验证
