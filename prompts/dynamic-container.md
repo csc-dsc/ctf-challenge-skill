@@ -187,3 +187,28 @@ exit 0
 8. 停止: `time docker compose -f docker/docker-compose.test.yml down` — <10秒
 
 全部通过后才交付给 Reviewer。
+
+## API 导入字段映射（v2）
+
+Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+
+| README 字段 | API JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 题目名称 | `title` | string | |
+| 题面（statement.md） | `content` | string | Markdown |
+| 分类 | `category` | string | Web/Pwn/Misc/Crypto/Reverse/Forensics 等 |
+| 题目类型 | `type` | `"DynamicContainer"` | 固定值 |
+| 环境 | `environment` | `"Docker"` | 固定值 |
+| 镜像 Registry 引用 | `containerImage` | string | 如 `10.24.0.28:5000/challenges/web-ssti:v1` |
+| 内部端口 | `exposePort` | number | 容器内端口 |
+| Flag 模板 | `flagTemplate` | string | 如 `flag{web_[TEAM_HASH]}` |
+| CPU | `cpuCount` | number | 默认 1 |
+| 内存（MiB） | `memoryLimit` | number | 默认 256 |
+| 存储（MiB） | `storageLimit` | number | 默认 512 |
+| 网络模式 | `networkMode` | `"Isolated"` | DynamicContainer 必须 Isolated |
+| 是否启用 | `isEnabled` | boolean | |
+| 初始分 | `originalScore` | number | |
+| 最低分比率 | `minScoreRate` | number | 0.0-1.0，默认 0.25 |
+| 难度 | `difficulty` | number | 0-10 整数 |
+
+**注意**：DynamicContainer 用 `flagTemplate`，**不要**填 `flags` 数组。详细 API 规范见 `prompts/_api.md`。

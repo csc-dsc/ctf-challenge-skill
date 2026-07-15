@@ -115,3 +115,22 @@ if __name__ == "__main__":
 3. 用 A 队 Flag 在 B 队附件中验证：应无法解出
 4. 确认 `flag-mapping.csv` 有 N 行记录
 5. 确认附件 SHA256 各不同
+
+## API 导入字段映射（v2）
+
+Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+
+| README 字段 | API JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 题目名称 | `title` | string | |
+| 题面 | `content` | string | Markdown |
+| 分类 | `category` | string | |
+| 题目类型 | `type` | `"DynamicAttachment"` | 固定值 |
+| 环境 | `environment` | `"None"` | DynamicAttachment 无在线环境 |
+| Flag 模板 | `flagTemplate` | string | 如 `flag{data_[TEAM_HASH]}` |
+| 是否启用 | `isEnabled` | boolean | |
+| 初始分 | `originalScore` | number | |
+| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
+| 难度 | `difficulty` | number | 0-10 整数 |
+
+**注意**：DynamicAttachment 用 `flagTemplate`，**不要**填 `flags` 数组。附件文件通过平台 UI 上传，不在 API JSON 中配置。详细 API 规范见 `prompts/_api.md`。

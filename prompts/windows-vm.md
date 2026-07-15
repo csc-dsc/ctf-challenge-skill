@@ -182,3 +182,23 @@ Flag 可以放在以下位置（根据题目设计选择）：
 5. 重启 VM 后服务仍可用
 6. Flag 可按预期解出
 7. 停止后 VM 和远程连接记录被清理
+
+## API 导入字段映射（v2）
+
+Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+
+| README 字段 | API JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 题目名称 | `title` | string | |
+| 题面 | `content` | string | Markdown |
+| 分类 | `category` | string | Pentest/Forensics/IR 等 |
+| 题目类型 | `type` | `"StaticContainer"` | Windows VM 用 StaticContainer |
+| 环境 | `environment` | `"WindowsVM"` | 固定值 |
+| 镜像模板 ID | `imageTemplateId` | number | 整数，**不能用** `containerImage` |
+| 是否启用 | `isEnabled` | boolean | |
+| 初始分 | `originalScore` | number | |
+| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
+| 难度 | `difficulty` | number | 0-10 整数 |
+| Flag | `flags` | array | `[{"flag": "...", "orderIndex": 0, "scoreMode": "InheritDecay", "answerType": "Flag"}]` |
+
+**注意**：Windows VM 用 `imageTemplateId`（整数），不能用 `containerImage`。不能填 Docker 专属字段（exposePort、cpuCount 等）。镜像模板需先在平台 UI 上传 `.qcow2` 文件并等待 Ready。详细 API 规范见 `prompts/_api.md`。

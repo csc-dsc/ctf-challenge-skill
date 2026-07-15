@@ -28,6 +28,11 @@ docker-compose.override.yml
 # Test artifacts
 test-challenge/
 
+# Platform API credentials
+.gzctf/
+*.token
+import-result.json
+
 # Temporary files
 *.tmp
 *.log

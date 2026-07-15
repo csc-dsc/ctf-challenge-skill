@@ -112,3 +112,23 @@ category-knowledge-difficulty-v1/
 4. 尝试用错误 Flag 提交，确认不会意外得分
 5. 计算 `sha256sum attachments/*` 并记录
 6. 搜索附件内容中是否有个人用户名、路径等痕迹
+
+## API 导入字段映射（v2）
+
+Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+
+| README 字段 | API JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 题目名称 | `title` | string | |
+| 题面 | `content` | string | Markdown |
+| 分类 | `category` | string | Crypto/Reverse/Forensics/Misc 等 |
+| 题目类型 | `type` | `"StaticAttachment"` | 固定值 |
+| 环境 | `environment` | `"None"` | 固定值，Attachment 类型必须用 None |
+| 是否启用 | `isEnabled` | boolean | |
+| 初始分 | `originalScore` | number | |
+| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
+| 难度 | `difficulty` | number | 0-10 整数 |
+| Flag | `flags` | array | `[{"flag": "...", "orderIndex": 0, "scoreMode": "InheritDecay", "answerType": "Flag"}]` |
+| 附件 URL | `attachment.remoteUrl` | string | 绝对 `http` 或 `https` URL |
+
+**注意**：`environment` 必须为 `"None"`，不能填容器/VM 字段。`attachment.remoteUrl` 只接受绝对 http/https URL。详细 API 规范见 `prompts/_api.md`。

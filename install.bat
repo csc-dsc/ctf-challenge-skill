@@ -51,6 +51,9 @@ if exist "%REPO_DIR%templates" (
 if exist "%REPO_DIR%spec" (
     xcopy /E /I /Y "%REPO_DIR%spec" "%AGENTS_DIR%\skills\%SKILL_NAME%\spec" >nul
 )
+if exist "%REPO_DIR%scripts" (
+    xcopy /E /I /Y "%REPO_DIR%scripts" "%AGENTS_DIR%\skills\%SKILL_NAME%\scripts" >nul
+)
 
 :: Create symlink (requires admin on Windows, fallback to copy)
 mklink /D "%CLAUDE_DIR%\skills\%SKILL_NAME%" "%AGENTS_DIR%\skills\%SKILL_NAME%" >nul 2>&1

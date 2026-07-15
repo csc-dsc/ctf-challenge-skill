@@ -528,3 +528,28 @@ README 中粘贴完整的 exp.py 内容。PWN 题须注明：
 | Checker/Exp 用 Web HTTP 模板贴到 PWN 题 | 全是 DOWN/FAIL | PWN 用 socket，Web 用 HTTP |
 | 没导出镜像 tar | 平台无法导入 | `docker save` 导出到题目根目录 |
 | README 没有完整的 Checker/Exp 脚本 | 提交者不知道怎么配 | 直接粘贴完整 Python 代码块 |
+
+## API 导入字段映射（v2）
+
+AWDP 题目在 API 层面以 `StaticContainer` + Docker 环境导入。Checker/Exp 脚本在平台 UI 中单独配置，不通过 API。
+
+| README 字段 | API JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 题目名称 | `title` | string | |
+| 题面 | `content` | string | Markdown |
+| 分类 | `category` | string | 通常是 Pwn/Web |
+| 题目类型 | `type` | `"StaticContainer"` | AWDP 用 StaticContainer |
+| 环境 | `environment` | `"Docker"` | |
+| 镜像 | `containerImage` | string | 完整 Registry 引用 |
+| 内部端口 | `exposePort` | number | 容器内服务端口 |
+| CPU | `cpuCount` | number | 默认 1 |
+| 内存 | `memoryLimit` | number | MiB，默认 256 |
+| 存储 | `storageLimit` | number | MiB，默认 512 |
+| 网络模式 | `networkMode` | `"Open"` | AWDP 通常用 Open |
+| 是否启用 | `isEnabled` | boolean | |
+| 初始分 | `originalScore` | number | |
+| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
+| 难度 | `difficulty` | number | 0-10 整数 |
+| Flag | `flags` | array | 静态 Flag，格式同 StaticContainer |
+
+导入后需在平台 UI 中手动配置 Checker 入口（`python3 checker.py`）和 Exp 入口（`python3 exp.py`）。详细 API 规范见 `prompts/_api.md`。

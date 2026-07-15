@@ -59,6 +59,11 @@ if [ -d "${REPO_DIR}/spec" ]; then
     cp -r "${REPO_DIR}/spec" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
 fi
 
+# Copy scripts (ctf_client.py)
+if [ -d "${REPO_DIR}/scripts" ]; then
+    cp -r "${REPO_DIR}/scripts" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
+fi
+
 # Create symlink in user skills
 if [ -L "${CLAUDE_DIR}/skills/${SKILL_NAME}" ]; then
     rm "${CLAUDE_DIR}/skills/${SKILL_NAME}"

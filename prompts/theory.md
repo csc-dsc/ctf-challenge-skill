@@ -175,3 +175,16 @@ theory-topic/
 | 判断的 options 写了 3 个 | 固定 `["正确", "错误"]` |
 | 多选只有 1 个正确答案 | 多选至少 2 个正确答案，否则改成单选 |
 | `"answerIndexes": [0, 0]` | 去重：`"answerIndexes": [0]` |
+
+## API 导入字段映射（v2）
+
+理论题通过平台 UI 的 JSON 导入功能创建，**不走 API**。操作流程：
+
+1. 管理员进入 `管理 → 理论题库` → `JSON 导入`
+2. 上传 `theory-bank.json` 或 `theory-paper.json`
+3. 预览题目和答案，确认无误
+4. 创建 Theory 比赛，进入后台 `理论试卷`
+5. 从题库选择题目，设置分值
+6. 保存试卷并发放
+
+无需构造 API JSON，无需镜像注册。详细规范见 `prompts/_api.md`。

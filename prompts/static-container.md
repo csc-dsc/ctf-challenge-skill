@@ -81,3 +81,36 @@ category-knowledge-difficulty-v1/
 ## 自检步骤
 
 同 dynamic-container.md 中的 Docker 测试步骤。
+
+## API 导入字段映射（v2）
+
+### Docker 环境
+
+| README 字段 | API JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 题目名称 | `title` | string | |
+| 题面 | `content` | string | Markdown |
+| 分类 | `category` | string | |
+| 题目类型 | `type` | `"StaticContainer"` | 固定值 |
+| 环境 | `environment` | `"Docker"` | 固定值 |
+| 镜像 | `containerImage` | string | 完整 Registry 引用 |
+| 内部端口 | `exposePort` | number | |
+| CPU | `cpuCount` | number | 默认 1 |
+| 内存 | `memoryLimit` | number | MiB，默认 256 |
+| 存储 | `storageLimit` | number | MiB，默认 512 |
+| 网络模式 | `networkMode` | `"Open"` 或 `"Isolated"` | |
+| 是否启用 | `isEnabled` | boolean | |
+| 初始分 | `originalScore` | number | |
+| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
+| 难度 | `difficulty` | number | 0-10 整数 |
+| Flag | `flags` | array | `[{"flag": "...", "orderIndex": 0, "scoreMode": "InheritDecay", "answerType": "Flag"}]` |
+
+### WindowsVM 环境
+
+| 差异字段 | API JSON 字段 | 说明 |
+|---|---|---|
+| 环境 | `environment` | `"WindowsVM"` |
+| 镜像模板 ID | `imageTemplateId` | number，**不能用** `containerImage` |
+| 端口/CPU/内存/存储 | — | WindowsVM 不需要这些字段 |
+
+详细 API 规范见 `prompts/_api.md`。

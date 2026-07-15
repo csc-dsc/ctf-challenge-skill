@@ -59,3 +59,16 @@ except socket.timeout:
 - [ ] 所有文件名仅用安全字符
 - [ ] 无作者个人信息、绝对路径、编辑器缓存
 - [ ] Checker/Exp 无 Windows 不兼容 API（MSG_DONTWAIT 等）
+
+## API 导入（v2）
+
+当用户配置了平台凭据（`GZCTF_HOST` + `GZCTF_TOKEN`），reviewer 通过后：
+
+1. Read `prompts/_api.md` 了解完整的 API 规范和字段映射
+2. 从 README.md 提取元数据，构造 challenge JSON（各题型字段映射见对应 prompt）
+3. 根据题目类型选择正确的字段：DynamicContainer 用 `flagTemplate`，其他用 `flags` 数组
+4. 先用 `ctf_client.py image` 子命令注册镜像，再用 `ctf_client.py challenge import` 导入题目
+5. 保存操作结果到 `import-result.json`
+6. 如导入失败，根据错误码修正（参见 `_api.md` 的"错误恢复"表）
+
+如用户未配置凭据，按 v1 流程输出手动操作说明。
