@@ -298,7 +298,9 @@ CMD ["/start.sh"]
 
 ## 本地测试流程（Builder 自测）
 
-创建文件后，必须执行完整的 Docker 测试：
+创建文件后，必须执行完整的端到端测试：
+
+### 通用测试（所有 Docker 题）
 
 ```bash
 # 1. 构建
@@ -310,24 +312,50 @@ docker compose -f docker/docker-compose.test.yml up -d
 # 3. 等待 healthy
 sleep 10
 
-# 4. 服务可达
-curl -fsS http://127.0.0.1:18080/
-
-# 5. 验证 Flag 可获取（用预期漏洞路径）
-curl -s "http://127.0.0.1:18080/?name={{7*7}}" | grep "49"
-
-# 6. 非 root 检查
+# 4. 非 root 检查
 docker compose -f docker/docker-compose.test.yml exec challenge id
 # 应显示 uid=10001
 
-# 7. 停止（应快速退出）
+# 5. 停止（应快速退出，10 秒内）
 time docker compose -f docker/docker-compose.test.yml down
-# 应在 10 秒内完成
 
-# 8. 导出镜像 tar 包（平台上传用）
+# 6. 导出镜像 tar 包（平台上传用）
 docker save <image-name> -o <challenge-name>.tar
-# 放在题目根目录下
 ```
+
+### AWDP 额外测试（Checker → Exp → Patch → 验证）
+
+```bash
+# 1-3 同上（build, up, wait healthy）
+
+# 4. 运行 Checker
+AWDP_TARGET_HOST=127.0.0.1 AWDP_TARGET_PORT=<host_port> AWDP_FLAG=flag{test} python checker.py
+# 期望输出 OK，exit 0
+
+# 5. 运行 Exp
+AWDP_TARGET_HOST=127.0.0.1 AWDP_TARGET_PORT=<host_port> AWDP_FLAG=flag{test} python exp.py
+# 期望 exit 0（漏洞存在，flag 拿到）
+
+# 6. 制作修补包并验证
+# 将修补包打包为 .tgz → docker cp 到容器 → 执行 update.sh
+# 再次运行 Checker → 应仍输出 OK（exit 0）
+# 再次运行 Exp → 应 exit 非 0（漏洞已修复）
+
+# 7. down + docker save
+```
+
+### 关键验证点
+
+| 检查项 | 方法 | 通过标准 |
+|--------|------|----------|
+| 非 root 用户 | `id` | uid=10001 |
+| SIGTERM | `time docker compose down` | < 10 秒 |
+| Checker 正常 | 设好环境变量运行 | 输出 OK, exit 0 |
+| Exp 可用 | 设好环境变量运行 | exit 0, 拿到 flag |
+| 修补后 Checker | 应用补丁后运行 | 仍输出 OK, exit 0 |
+| 修补后 Exp | 应用补丁后运行 | exit 非 0, 漏洞已修复 |
+| 镜像 tar | `docker save` | 文件在题目根目录 |
+| README 完整性 | 读 README.md | 包含 Checker/Exp 完整脚本 + 暴露端口 + 平台配置表 |
 
 ---
 
@@ -469,6 +497,10 @@ Agent(
 - [ ] Exp 可稳定取得 Flag
 - [ ] 修补包可应用
 - [ ] 修补后 Checker 通过、Exp 失败
+- [ ] `docker save` 镜像 tar 包已导出
+- [ ] README 包含完整 Checker 和 Exp 脚本代码
+- [ ] README 标注暴露端口（容器内部端口，不是宿主机映射端口）
+- [ ] README 包含平台配置参数表（分数、轮次、攻击次数等）
 
 ### 理论（如有）
 - [ ] JSON 可解析

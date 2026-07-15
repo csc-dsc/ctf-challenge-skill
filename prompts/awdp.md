@@ -483,3 +483,48 @@ tar -tzf ../bof-fix-v1.tgz   # 验证内容
    docker save <image-name> -o <challenge-name>.tar
    ```
    放在题目根目录下，文件名与题目名一致。
+
+## 平台提交清单（README 必须包含）
+
+出题完成后，README.md 必须包含以下全部信息，提交者可直接复制到平台：
+
+### 1. 平台配置参数表
+
+```markdown
+| 配置项 | 值 |
+|--------|-----|
+| 服务名称 | {题目名} |
+| 容器镜像 | {challenge-name}.tar（docker load 导入后推送到 Registry） |
+| 暴露端口 | {容器内部端口，如 9999} |
+| Checker 入口 | python3 checker.py |
+| Exp 入口 | python3 exp.py |
+| 攻击分 | 50 |
+| SLA 分 | 20 |
+| 修补分 | 100 |
+| 异常扣分 | 200 |
+| 攻击阶段 | 10 分钟 |
+| 修补阶段 | 10 分钟 |
+| 总轮数 | 20 |
+| 每轮最大攻击 | 3 |
+```
+
+### 2. Checker 脚本
+
+README 中粘贴完整的 checker.py 内容。**必须匹配服务类型**：
+- PWN 题 → `socket` 直连 TCP 端口，检查 banner/关键字
+- Web 题 → `requests`/`urllib` HTTP 请求
+
+### 3. Exp 脚本
+
+README 中粘贴完整的 exp.py 内容。PWN 题须注明：
+- 偏移量和 ROP 地址来源（`objdump -t/-d`）
+- 编译选项（`-fno-stack-protector -no-pie`）
+
+### 4. 常见提交错误（CRITICAL）
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| 暴露端口填 80 或其他错误端口 | Checker 连不上，服务 DOWN | 填容器内部端口（xinetd=9999, Web=80） |
+| Checker/Exp 用 Web HTTP 模板贴到 PWN 题 | 全是 DOWN/FAIL | PWN 用 socket，Web 用 HTTP |
+| 没导出镜像 tar | 平台无法导入 | `docker save` 导出到题目根目录 |
+| README 没有完整的 Checker/Exp 脚本 | 提交者不知道怎么配 | 直接粘贴完整 Python 代码块 |
