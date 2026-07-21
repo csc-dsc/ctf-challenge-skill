@@ -188,27 +188,27 @@ exit 0
 
 全部通过后才交付给 Reviewer。
 
-## API 导入字段映射（v2）
+## 难度设计指南
 
-Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+### Easy（1-3 步，15-30 分钟）
+- **SSTI**: 直接模板注入，无过滤，`{{7*7}}` 即可验证
+- **SQLi**: 基础联合查询，无 WAF，直接 `' UNION SELECT ... --`
+- **命令注入**: 无过滤的 `os.system()` 或 `popen()` 调用
 
-| README 字段 | API JSON 字段 | 类型 | 说明 |
-|---|---|---|---|
-| 题目名称 | `title` | string | |
-| 题面（statement.md） | `content` | string | Markdown |
-| 分类 | `category` | string | Web/Pwn/Misc/Crypto/Reverse/Forensics 等 |
-| 题目类型 | `type` | `"DynamicContainer"` | 固定值 |
-| 环境 | `environment` | `"Docker"` | 固定值 |
-| 镜像 Registry 引用 | `containerImage` | string | 如 `10.24.0.28:5000/challenges/web-ssti:v1` |
-| 内部端口 | `exposePort` | number | 容器内端口 |
-| Flag 模板 | `flagTemplate` | string | 如 `flag{web_[TEAM_HASH]}` |
-| CPU | `cpuCount` | number | 默认 1 |
-| 内存（MiB） | `memoryLimit` | number | 默认 256 |
-| 存储（MiB） | `storageLimit` | number | 默认 512 |
-| 网络模式 | `networkMode` | `"Isolated"` | DynamicContainer 必须 Isolated |
-| 是否启用 | `isEnabled` | boolean | |
-| 初始分 | `originalScore` | number | |
-| 最低分比率 | `minScoreRate` | number | 0.0-1.0，默认 0.25 |
-| 难度 | `difficulty` | number | 0-10 整数 |
+### Medium（2-4 步，30-90 分钟）
+- **SSTI**: 有基础过滤（如过滤 `__`），需绕过 + 沙箱逃逸
+- **SQLi**: 有简单 WAF 绕过，需盲注或二次注入
+- **文件上传**: 有后缀检查，需绕过（双后缀、MIME、.htaccess）
+- **SSRF**: 需要 bypass 内网探测 + 利用内部服务
 
-**注意**：DynamicContainer 用 `flagTemplate`，**不要**填 `flags` 数组。详细 API 规范见 `prompts/_api.md`。
+### Hard（4+ 步，1-4 小时）
+- **多阶段利用链**: 信息泄露 → 提权 → RCE → 读 Flag
+- **自定义协议/序列化**: 逆向私有协议后构造利用
+- **内核/容器逃逸**: Dirty Pipe, CVE-2022-0847 等
+
+### 难度自检
+- 每个 Easy 题用 `< 50` 行代码实现漏洞核心
+- 每个 Medium 题用 `< 150` 行代码
+- 每个 Hard 题设计文档描述多阶段链路
+
+> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。

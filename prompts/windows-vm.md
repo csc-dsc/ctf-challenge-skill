@@ -183,22 +183,20 @@ Flag 可以放在以下位置（根据题目设计选择）：
 6. Flag 可按预期解出
 7. 停止后 VM 和远程连接记录被清理
 
-## API 导入字段映射（v2）
+## 难度设计指南
 
-Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+### Easy（15-30 分钟）
+- Flag 在桌面文本文件或浏览器历史
+- 使用常见工具（Event Viewer, Regedit）即可找到
 
-| README 字段 | API JSON 字段 | 类型 | 说明 |
-|---|---|---|---|
-| 题目名称 | `title` | string | |
-| 题面 | `content` | string | Markdown |
-| 分类 | `category` | string | Pentest/Forensics/IR 等 |
-| 题目类型 | `type` | `"StaticContainer"` | Windows VM 用 StaticContainer |
-| 环境 | `environment` | `"WindowsVM"` | 固定值 |
-| 镜像模板 ID | `imageTemplateId` | number | 整数，**不能用** `containerImage` |
-| 是否启用 | `isEnabled` | boolean | |
-| 初始分 | `originalScore` | number | |
-| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
-| 难度 | `difficulty` | number | 0-10 整数 |
-| Flag | `flags` | array | `[{"flag": "...", "orderIndex": 0, "scoreMode": "InheritDecay", "answerType": "Flag"}]` |
+### Medium（30-90 分钟）
+- Flag 在注册表深层键值或 Windows Event Log
+- 需要组合 2-3 种取证技术
+- 涉及基本 PowerShell 或 WMI 查询
 
-**注意**：Windows VM 用 `imageTemplateId`（整数），不能用 `containerImage`。不能填 Docker 专属字段（exposePort、cpuCount 等）。镜像模板需先在平台 UI 上传 `.qcow2` 文件并等待 Ready。详细 API 规范见 `prompts/_api.md`。
+### Hard（1-4 小时）
+- 多阶段 IR 场景：初始入侵 → 持久化 → 横向移动
+- 需要时间线重建、内存取证、日志关联分析
+- 涉及 AD 域环境
+
+> **API 自动导入（未来功能）**：Windows VM 用 `imageTemplateId`（整数），不能用 `containerImage`。字段映射见 `prompts/_api.md`。

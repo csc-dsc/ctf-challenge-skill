@@ -82,35 +82,19 @@ category-knowledge-difficulty-v1/
 
 同 dynamic-container.md 中的 Docker 测试步骤。
 
-## API 导入字段映射（v2）
+## 难度设计指南
 
-### Docker 环境
+### Easy（15-30 分钟）
+- **代码审计**: 明显的硬编码凭据、注释中的密码
+- **配置漏洞**: `.git` 泄露、默认密码、debug 端点开启
 
-| README 字段 | API JSON 字段 | 类型 | 说明 |
-|---|---|---|---|
-| 题目名称 | `title` | string | |
-| 题面 | `content` | string | Markdown |
-| 分类 | `category` | string | |
-| 题目类型 | `type` | `"StaticContainer"` | 固定值 |
-| 环境 | `environment` | `"Docker"` | 固定值 |
-| 镜像 | `containerImage` | string | 完整 Registry 引用 |
-| 内部端口 | `exposePort` | number | |
-| CPU | `cpuCount` | number | 默认 1 |
-| 内存 | `memoryLimit` | number | MiB，默认 256 |
-| 存储 | `storageLimit` | number | MiB，默认 512 |
-| 网络模式 | `networkMode` | `"Open"` 或 `"Isolated"` | |
-| 是否启用 | `isEnabled` | boolean | |
-| 初始分 | `originalScore` | number | |
-| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
-| 难度 | `difficulty` | number | 0-10 整数 |
-| Flag | `flags` | array | `[{"flag": "...", "orderIndex": 0, "scoreMode": "InheritDecay", "answerType": "Flag"}]` |
+### Medium（30-90 分钟）
+- **组合漏洞**: 信息泄露 + 权限绕过
+- **逻辑漏洞**: 越权访问、业务流程绕过
+- **反序列化**: 有线索的反序列化利用
 
-### WindowsVM 环境
+### Hard（1-4 小时）
+- **多阶段渗透**: 外部打点 → 内网探测 → 横向移动
+- **自定义应用**: 逆向或审计自定义协议/应用
 
-| 差异字段 | API JSON 字段 | 说明 |
-|---|---|---|
-| 环境 | `environment` | `"WindowsVM"` |
-| 镜像模板 ID | `imageTemplateId` | number，**不能用** `containerImage` |
-| 端口/CPU/内存/存储 | — | WindowsVM 不需要这些字段 |
-
-详细 API 规范见 `prompts/_api.md`。
+> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。

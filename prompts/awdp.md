@@ -529,27 +529,21 @@ README 中粘贴完整的 exp.py 内容。PWN 题须注明：
 | 没导出镜像 tar | 平台无法导入 | `docker save` 导出到题目根目录 |
 | README 没有完整的 Checker/Exp 脚本 | 提交者不知道怎么配 | 直接粘贴完整 Python 代码块 |
 
-## API 导入字段映射（v2）
+## 难度设计指南
 
-AWDP 题目在 API 层面以 `StaticContainer` + Docker 环境导入。Checker/Exp 脚本在平台 UI 中单独配置，不通过 API。
+### Easy（15-30 分钟修补）
+- 单一、明显的漏洞点（如无过滤的命令注入）
+- 修补只需加一行过滤或参数化查询
+- Exp 脚本 < 30 行
 
-| README 字段 | API JSON 字段 | 类型 | 说明 |
-|---|---|---|---|
-| 题目名称 | `title` | string | |
-| 题面 | `content` | string | Markdown |
-| 分类 | `category` | string | 通常是 Pwn/Web |
-| 题目类型 | `type` | `"StaticContainer"` | AWDP 用 StaticContainer |
-| 环境 | `environment` | `"Docker"` | |
-| 镜像 | `containerImage` | string | 完整 Registry 引用 |
-| 内部端口 | `exposePort` | number | 容器内服务端口 |
-| CPU | `cpuCount` | number | 默认 1 |
-| 内存 | `memoryLimit` | number | MiB，默认 256 |
-| 存储 | `storageLimit` | number | MiB，默认 512 |
-| 网络模式 | `networkMode` | `"Open"` | AWDP 通常用 Open |
-| 是否启用 | `isEnabled` | boolean | |
-| 初始分 | `originalScore` | number | |
-| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
-| 难度 | `difficulty` | number | 0-10 整数 |
-| Flag | `flags` | array | 静态 Flag，格式同 StaticContainer |
+### Medium（30-90 分钟修补）
+- 组合漏洞或需要一定审计能力
+- 修补需要改多处或重构部分逻辑
+- Exp 脚本 30-80 行
 
-导入后需在平台 UI 中手动配置 Checker 入口（`python3 checker.py`）和 Exp 入口（`python3 exp.py`）。详细 API 规范见 `prompts/_api.md`。
+### Hard（1-4 小时修补）
+- 多漏洞服务，需要完整审计
+- 修补需要深入理解业务逻辑
+- Exp 可能涉及 ROP、堆利用等高级技术
+
+> **API 自动导入（未来功能）**：AWDP 题目以 StaticContainer 导入，Checker/Exp 在平台 UI 单独配置。字段映射见 `prompts/_api.md`。

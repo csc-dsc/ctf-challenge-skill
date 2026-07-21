@@ -60,15 +60,20 @@ except socket.timeout:
 - [ ] 无作者个人信息、绝对路径、编辑器缓存
 - [ ] Checker/Exp 无 Windows 不兼容 API（MSG_DONTWAIT 等）
 
-## API 导入（v2）
+## 难度设计通用原则
 
-当用户配置了平台凭据（`GZCTF_HOST` + `GZCTF_TOKEN`），reviewer 通过后：
+### 难度分层标准
 
-1. Read `prompts/_api.md` 了解完整的 API 规范和字段映射
-2. 从 README.md 提取元数据，构造 challenge JSON（各题型字段映射见对应 prompt）
-3. 根据题目类型选择正确的字段：DynamicContainer 用 `flagTemplate`，其他用 `flags` 数组
-4. 先用 `ctf_client.py image` 子命令注册镜像，再用 `ctf_client.py challenge import` 导入题目
-5. 保存操作结果到 `import-result.json`
-6. 如导入失败，根据错误码修正（参见 `_api.md` 的"错误恢复"表）
+| 难度 | 核心特征 | 典型考点 |
+|------|---------|---------|
+| **Easy** | 单一基础技术，无隐藏步骤 | 明文传输、简单注入、已知算法 |
+| **Medium** | 组合技术或绕过基础防护 | WAF绕过、反序列化、协议分析 |
+| **Hard** | 多阶段利用链，原创思路 | 内核利用、自定义加密、VM逃逸 |
 
-如用户未配置凭据，按 v1 流程输出手动操作说明。
+### 出题前自问
+1. 做完这道题，选手能学到什么？
+2. 有比预期解法更简单的非预期解法吗？
+3. Flag 会不会意外泄露（报错、源码、元数据）？
+4. 在干净环境中，按 writeup 步骤能走到最后吗？
+
+> **API 自动导入（未来功能）**：`scripts/ctf_client.py` 实现了完整客户端，字段映射和错误恢复见 `prompts/_api.md`。

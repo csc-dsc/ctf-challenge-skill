@@ -126,7 +126,13 @@ class PlatformClient:
             raise PlatformError("GZCTF_HOST is not set")
         if not token:
             raise PlatformError("GZCTF_TOKEN is not set")
-        self.base_url = f"https://{host}/api/open/v1"
+        # Accept full URL (with protocol+port) or bare hostname
+        if host.startswith("http://") or host.startswith("https://"):
+            self.base_url = host.rstrip("/")
+        else:
+            self.base_url = f"http://{host}"
+        if not self.base_url.endswith("/api/open/v1"):
+            self.base_url += "/api/open/v1"
         self.token = token
         self.timeout = timeout
 
@@ -270,7 +276,8 @@ class PlatformClient:
 
     # === Images API ===
 
-    def register_docker_reference(self, name, registry_url, os_type="Linux"):
+    def register_docker_reference(self, name, registry_url, os_type="Linux",
+                                  expected_digest=None):
         """POST /images/docker-references — register a registry reference.
 
         Only 10.24.0.28:5000 or public registries are allowed by the platform.
@@ -281,6 +288,8 @@ class PlatformClient:
             "registryUrl": registry_url,
             "osType": os_type,
         }
+        if expected_digest:
+            body["expectedDigest"] = expected_digest
         key = self._generate_idempotency_key(f"image-ref-{name}")
         headers = self._idem_headers(key)
         result = self._request("POST", "/images/docker-references",
@@ -292,7 +301,7 @@ class PlatformClient:
         return result
 
     def upload_docker_archive(self, path, name, repository, tag,
-                              source_image=None):
+                              source_image=None, expected_digest=None):
         """POST /images/docker-archives — upload docker archive tar.
 
         Uses multipart/form-data to upload the tar file.
@@ -329,6 +338,8 @@ class PlatformClient:
         add_field("tag", tag)
         if source_image:
             add_field("sourceImage", source_image)
+        if expected_digest:
+            add_field("expectedDigest", expected_digest)
         add_file_field("archive", tar_path.name,
                        tar_path.read_bytes(), "application/gzip")
         parts.append(f"--{boundary}--".encode("utf-8"))
@@ -350,8 +361,14 @@ class PlatformClient:
         """GET /images/{imageTemplateId} — query image template."""
         return self._request("GET", f"/images/{image_template_id}")
 
+    # Image status enum (doc: 0=Ready, 1=Importing, 2=Error, 3=Deleting)
+    IMAGE_STATUS_READY = 0
+    IMAGE_STATUS_IMPORTING = 1
+    IMAGE_STATUS_ERROR = 2
+    IMAGE_STATUS_DELETING = 3
+
     def wait_for_image_ready(self, image_template_id, max_wait=300):
-        """Poll GET /images/{imageTemplateId} until status is Ready (2)."""
+        """Poll GET /images/{imageTemplateId} until status is Ready (0)."""
         delay = 2.0
         deadline = time.time() + max_wait
         while True:
@@ -360,11 +377,12 @@ class PlatformClient:
                     f"Image {image_template_id} not Ready after {max_wait}s")
             info = self.get_image_status(image_template_id)
             status = info.get("status", -1)
-            if status == 2:  # Ready
+            if status == self.IMAGE_STATUS_READY:
                 return info
-            if status == 3:  # Failed
+            if status == self.IMAGE_STATUS_ERROR:
                 raise PlatformError(
-                    f"Image {image_template_id} preparation failed")
+                    f"Image {image_template_id} import failed: "
+                    f"{info.get('errorMessage', 'no detail')}")
             time.sleep(delay)
             delay = min(delay * 1.5, 10)
 
@@ -499,6 +517,8 @@ def _make_parser():
     irr.add_argument("--name", required=True)
     irr.add_argument("--registry-url", required=True)
     irr.add_argument("--os-type", default="Linux", choices=["Linux", "Windows"])
+    irr.add_argument("--expected-digest", default=None,
+                     help="SHA-256 digest of the image (hex)")
 
     iua = img_sub.add_parser("upload-archive", help="Upload a Docker archive tar")
     iua.add_argument("--path", required=True, help="Path to .tar file")
@@ -506,6 +526,8 @@ def _make_parser():
     iua.add_argument("--repository", required=True)
     iua.add_argument("--tag", required=True)
     iua.add_argument("--source-image", default=None)
+    iua.add_argument("--expected-digest", default=None,
+                     help="SHA-256 digest of the archive file (hex)")
 
     ist = img_sub.add_parser("status", help="Check image template status")
     ist.add_argument("--image-id", required=True, type=int)
@@ -589,12 +611,13 @@ def main():
         if args.command == "image":
             if args.subcommand == "register-reference":
                 r = client.register_docker_reference(
-                    args.name, args.registry_url, args.os_type)
+                    args.name, args.registry_url, args.os_type,
+                    args.expected_digest)
                 print_result(r)
             elif args.subcommand == "upload-archive":
                 r = client.upload_docker_archive(
                     args.path, args.name, args.repository, args.tag,
-                    args.source_image)
+                    args.source_image, args.expected_digest)
                 print_result(r)
             elif args.subcommand == "status":
                 r = client.get_image_status(args.image_id)

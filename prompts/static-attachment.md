@@ -113,22 +113,21 @@ category-knowledge-difficulty-v1/
 5. 计算 `sha256sum attachments/*` 并记录
 6. 搜索附件内容中是否有个人用户名、路径等痕迹
 
-## API 导入字段映射（v2）
+## 难度设计指南
 
-Reviewer 通过后，如用户配置了平台凭据，按以下映射构造 `challenge-def.json`：
+### Easy（15-30 分钟，1-2 步）
+- **Crypto**: 凯撒/Base64/单表替换、已知算法的弱密钥
+- **Reverse**: 字符串明文 Flag、简单异或
+- **Forensics**: 明文 HTTP 流量、文件元数据、简单 strings
 
-| README 字段 | API JSON 字段 | 类型 | 说明 |
-|---|---|---|---|
-| 题目名称 | `title` | string | |
-| 题面 | `content` | string | Markdown |
-| 分类 | `category` | string | Crypto/Reverse/Forensics/Misc 等 |
-| 题目类型 | `type` | `"StaticAttachment"` | 固定值 |
-| 环境 | `environment` | `"None"` | 固定值，Attachment 类型必须用 None |
-| 是否启用 | `isEnabled` | boolean | |
-| 初始分 | `originalScore` | number | |
-| 最低分比率 | `minScoreRate` | number | 0.0-1.0 |
-| 难度 | `difficulty` | number | 0-10 整数 |
-| Flag | `flags` | array | `[{"flag": "...", "orderIndex": 0, "scoreMode": "InheritDecay", "answerType": "Flag"}]` |
-| 附件 URL | `attachment.remoteUrl` | string | 绝对 `http` 或 `https` URL |
+### Medium（30-90 分钟，2-4 步）
+- **Crypto**: 非标准填充的 AES、多轮加密、弱 PRNG
+- **Reverse**: 花指令、简单反调试、自定义编码
+- **Forensics**: USB 键盘流量、内存取证（mimikatz）、NTFS 日志
 
-**注意**：`environment` 必须为 `"None"`，不能填容器/VM 字段。`attachment.remoteUrl` 只接受绝对 http/https URL。详细 API 规范见 `prompts/_api.md`。
+### Hard（1-4 小时，4+ 步）
+- **Crypto**: 格密码基础、侧信道、自定义 S-Box
+- **Reverse**: VM 保护、重度混淆、Go/Rust 逆向
+- **Forensics**: 损坏文件修复、自定义文件系统、TTP 溯源
+
+> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。
