@@ -134,9 +134,9 @@ docker save → 镜像 tar
 | 忘导出镜像 tar | 平台没镜像可用 |
 | README 没脚本 | 提交者不知道填什么 |
 
-## v2: 平台 API 自动导入
+## 平台 API 自动导入（Exercise Open API v1）
 
-v2 在 reviewer 通过后增加了自动导入阶段。设置凭据后，Skill 会自动将镜像推送到平台 Registry 并通过 Open API 创建题目。
+reviewer 通过后，Skill 可通过公共 Exercise Open API 导入题目；镜像注册仍使用 images API，题目写入使用 exercises API。
 
 ### 配置凭据
 
@@ -146,7 +146,7 @@ v2 在 reviewer 通过后增加了自动导入阶段。设置凭据后，Skill �
 2. **环境变量**（推荐）：`GZCTF_HOST` + `GZCTF_TOKEN`
 3. **配置文件**：`~/.gzctf/config.json` — `{"host": "...", "token": "..."}`
 
-Token 需在平台 "账户 → API Token" 创建，scope 选择 `challenges:read/write/delete`、`operations:read`、`images:read/write/delete`，并授权对应比赛的 `game:{id}` 资源。
+Token 需在平台 "账户 → API Token" 创建。公共练习至少选择 `exercises:read`、`exercises:write`、`operations:read`，删除才增加 `exercises:delete`，并授权 `exercise:*`。每个 Token 对应明确的创建者，不得共享。
 
 ### 导入流程
 
@@ -157,9 +157,10 @@ Reviewer PASS
       → 方案A（Registry 可达）：docker tag + push + register-reference
       → 方案B（离线）：docker save + upload-archive
       → 轮询镜像 Ready
-      → 生成 challenge-def.json
-      → 调用 import API
-      → 输出 challenge ID + URL
+      → 生成 exercise-import.json
+      → 调用 POST /api/open/v1/exercises/import
+      → 轮询 /api/open/v1/operations/{id}
+      → 输出 externalId -> exerciseId 映射
   → 无凭据：输出手动操作步骤（v1 行为）
 ```
 

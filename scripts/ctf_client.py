@@ -15,6 +15,15 @@ Usage:
   ctf_client.py challenge delete --game-id ID --challenge-id ID
   ctf_client.py challenge delete-batch --game-id ID --ids ID1,ID2,ID3
 
+  ctf_client.py exercise import --file JSON_FILE
+  ctf_client.py exercise create --file JSON_FILE
+  ctf_client.py exercise list [--limit N]
+  ctf_client.py exercise get --exercise-id ID
+  ctf_client.py exercise update --exercise-id ID --file JSON_FILE
+  ctf_client.py exercise delete --exercise-id ID
+  ctf_client.py operation get --operation-id ID
+  ctf_client.py operation wait --operation-id ID [--max-wait SECONDS]
+
   ctf_client.py configure --set KEY=VALUE
 
 Credentials: set GZCTF_HOST + GZCTF_TOKEN env vars, or use --host/--token flags,
@@ -32,6 +41,7 @@ import random
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +81,10 @@ def save_config(**kwargs):
     cfg.update(kwargs)
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
+    try:
+        os.chmod(CONFIG_FILE, 0o600)
+    except OSError:
+        pass
 
 
 # --- Error hierarchy ---
@@ -487,6 +501,52 @@ class PlatformClient:
         print(f"Deleted: {len(deleted)}, already missing: {len(missing)}")
         return result
 
+    # === Public Exercise API ===
+
+    def list_exercises(self, limit=50, search=None, category=None,
+                       difficulty=None, tags=None):
+        """GET /exercises; filters are comma-separated query values."""
+        params = [f"limit={max(1, min(limit, 100))}"]
+        for key, value in (("search", search), ("category", category),
+                           ("difficulty", difficulty), ("tags", tags)):
+            if value:
+                params.append(f"{key}={urllib.parse.quote(str(value))}")
+        return self._request("GET", "/exercises?" + "&".join(params))
+
+    def get_exercise(self, exercise_id):
+        return self._request("GET", f"/exercises/{exercise_id}")
+
+    def _submit_exercise(self, method, path, body=None, key_prefix="exercise",
+                         idempotency_key=None):
+        key = idempotency_key or self._generate_idempotency_key(key_prefix)
+        result = self._request(method, path, json_body=body,
+                               extra_headers=self._idem_headers(key))
+        operation_id = result.get("id")
+        return self._poll_operation(operation_id) if operation_id else result
+
+    def import_exercises(self, items, idempotency_key=None):
+        body = {"items": items}
+        return self._submit_exercise("POST", "/exercises/import", body,
+                                     "exercise-import", idempotency_key)
+
+    def create_exercise(self, definition, idempotency_key=None):
+        return self._submit_exercise("POST", "/exercises", definition,
+                                     "exercise-create", idempotency_key)
+
+    def update_exercise(self, exercise_id, definition, idempotency_key=None):
+        return self._submit_exercise("PUT", f"/exercises/{exercise_id}",
+                                     definition, f"exercise-update-{exercise_id}", idempotency_key)
+
+    def delete_exercise(self, exercise_id, idempotency_key=None):
+        return self._submit_exercise("DELETE", f"/exercises/{exercise_id}",
+                                     None, f"exercise-delete-{exercise_id}", idempotency_key)
+
+    def get_operation(self, operation_id):
+        return self._request("GET", f"/operations/{operation_id}")
+
+    def wait_operation(self, operation_id, max_wait=300):
+        return self._poll_operation(operation_id, max_wait=max_wait)
+
 
 # --- CLI ---
 
@@ -570,6 +630,41 @@ def _make_parser():
     cdb.add_argument("--game-id", required=True, type=int)
     cdb.add_argument("--ids", required=True,
                      help="Comma-separated challenge IDs")
+
+    ex = sub.add_parser("exercise", help="Public practice exercise management")
+    ex_sub = ex.add_subparsers(dest="subcommand")
+    ex_sub.required = True
+    eim = ex_sub.add_parser("import", help="Import 1-100 exercises")
+    eim.add_argument("--file", required=True,
+                     help="JSON file containing {\"items\": [...]} or an array")
+    eim.add_argument("--idempotency-key", default=None)
+    ecr = ex_sub.add_parser("create", help="Create one exercise")
+    ecr.add_argument("--file", required=True, help="ExerciseCreateModel JSON")
+    ecr.add_argument("--idempotency-key", default=None)
+    eli = ex_sub.add_parser("list", help="List public exercises")
+    eli.add_argument("--limit", type=int, default=50)
+    eli.add_argument("--search", default=None)
+    eli.add_argument("--category", default=None)
+    eli.add_argument("--difficulty", default=None)
+    eli.add_argument("--tags", default=None)
+    eget = ex_sub.add_parser("get", help="Get exercise details")
+    eget.add_argument("--exercise-id", required=True, type=int)
+    eup = ex_sub.add_parser("update", help="Replace one exercise")
+    eup.add_argument("--exercise-id", required=True, type=int)
+    eup.add_argument("--file", required=True, help="ExerciseCreateModel JSON")
+    eup.add_argument("--idempotency-key", default=None)
+    ede = ex_sub.add_parser("delete", help="Delete one exercise")
+    ede.add_argument("--exercise-id", required=True, type=int)
+    ede.add_argument("--idempotency-key", default=None)
+
+    op = sub.add_parser("operation", help="Async operation status")
+    op_sub = op.add_subparsers(dest="subcommand")
+    op_sub.required = True
+    opg = op_sub.add_parser("get", help="Get operation")
+    opg.add_argument("--operation-id", required=True)
+    opw = op_sub.add_parser("wait", help="Wait for operation completion")
+    opw.add_argument("--operation-id", required=True)
+    opw.add_argument("--max-wait", type=int, default=300)
 
     # --- configure ---
     cfg = sub.add_parser("configure", help="Manage client configuration")
@@ -658,6 +753,34 @@ def main():
                 ids = [int(x.strip()) for x in args.ids.split(",")]
                 r = client.delete_challenges_batch(args.game_id, ids)
                 print_result(r)
+
+        elif args.command == "exercise":
+            if args.subcommand == "import":
+                with open(args.file, encoding="utf-8") as f:
+                    payload = json.load(f)
+                items = payload.get("items") if isinstance(payload, dict) else payload
+                if not isinstance(items, list):
+                    raise PlatformValidationError("exercise import file must contain an items array")
+                print_result(client.import_exercises(items, args.idempotency_key))
+            elif args.subcommand == "create":
+                with open(args.file, encoding="utf-8") as f:
+                    print_result(client.create_exercise(json.load(f), args.idempotency_key))
+            elif args.subcommand == "list":
+                print_result(client.list_exercises(args.limit, args.search,
+                                                   args.category, args.difficulty, args.tags))
+            elif args.subcommand == "get":
+                print_result(client.get_exercise(args.exercise_id))
+            elif args.subcommand == "update":
+                with open(args.file, encoding="utf-8") as f:
+                    print_result(client.update_exercise(args.exercise_id, json.load(f), args.idempotency_key))
+            elif args.subcommand == "delete":
+                print_result(client.delete_exercise(args.exercise_id, args.idempotency_key))
+
+        elif args.command == "operation":
+            if args.subcommand == "get":
+                print_result(client.get_operation(args.operation_id))
+            elif args.subcommand == "wait":
+                print_result(client.wait_operation(args.operation_id, args.max_wait))
 
     except (PlatformAuthError, PlatformPermissionError,
             PlatformNotFoundError, PlatformConflictError,

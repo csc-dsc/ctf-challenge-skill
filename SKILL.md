@@ -25,7 +25,7 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
   → 如 PASS：交付文件包（D:\TASK\{type}\{name}\）
 ```
 
-> **API 自动导入**：`scripts/ctf_client.py` 已实现完整的 Open API v1 客户端，待平台稳定后通过 SKILL.md 更新接入。当前聚焦本地高质量出题。
+> **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise 导入、查询、更新、删除和 operation 轮询。仅在 reviewer PASS 后导入。
 
 ## 题型路由
 
@@ -581,10 +581,12 @@ Agent(
 ## Future: Platform API Import
 
 `scripts/ctf_client.py` 已实现完整的 Open API v1 客户端（零外部依赖，Python stdlib only）。
-API 集成文档见 `prompts/_api.md`。待平台 API 稳定后，将通过 SKILL.md 更新接入自动导入流程。
+API 集成协议见 `prompts/_api.md`。公共练习使用 `/api/open/v1/exercises`，不是比赛题目的 challenges 路径。
 
 Token 安全规则（使用 API 时必须遵守）：
 1. Token **只能**通过环境变量 `GZCTF_TOKEN` 或 `~/.gzctf/config.json` 传入
 2. **绝对禁止**将 Token 写入：Git 仓库、skill 文件、日志、`import-result.json`、shell 历史
 3. 所有含 Token 的命令必须通过环境变量传递，禁止在命令行中明文写出 Token
+4. 每个 AI、CI 或操作者使用独立 Token；平台审计通过 token ID 和创建者用户 ID 追溯上传责任
+5. Exercise Token 至少需要 `exercises:write`、`exercises:read`、`operations:read`，资源授权为 `exercise:*`
 4. 配置文件权限应设为 600：`chmod 600 ~/.gzctf/config.json`
