@@ -130,4 +130,4 @@ category-knowledge-difficulty-v1/
 - **Reverse**: VM 保护、重度混淆、Go/Rust 逆向
 - **Forensics**: 损坏文件修复、自定义文件系统、TTP 溯源
 
-> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise；附件使用 `attachment.remoteUrl`。

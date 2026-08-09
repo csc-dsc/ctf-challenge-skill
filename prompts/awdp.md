@@ -546,4 +546,4 @@ README 中粘贴完整的 exp.py 内容。PWN 题须注明：
 - 修补需要深入理解业务逻辑
 - Exp 可能涉及 ROP、堆利用等高级技术
 
-> **API 自动导入（未来功能）**：AWDP 题目以 StaticContainer 导入，Checker/Exp 在平台 UI 单独配置。字段映射见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise；AWDP 的 Checker/Exp 仍需按平台专用配置提交。

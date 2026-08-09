@@ -199,4 +199,4 @@ Flag 可以放在以下位置（根据题目设计选择）：
 - 需要时间线重建、内存取证、日志关联分析
 - 涉及 AD 域环境
 
-> **API 自动导入（未来功能）**：Windows VM 用 `imageTemplateId`（整数），不能用 `containerImage`。字段映射见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise。Windows VM 用 `imageTemplateId`（整数），不能用 `containerImage`。

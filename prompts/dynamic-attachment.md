@@ -130,4 +130,4 @@ if __name__ == "__main__":
 - 每队附件有完全不同的加密路径
 - 需要逆向自定义保护 + 侧信道或数学攻击
 
-> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise；附件使用 `attachment.remoteUrl`。

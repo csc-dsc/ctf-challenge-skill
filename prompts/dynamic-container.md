@@ -211,4 +211,4 @@ exit 0
 - 每个 Medium 题用 `< 150` 行代码
 - 每个 Hard 题设计文档描述多阶段链路
 
-> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise；动态题使用 `flagTemplate`。

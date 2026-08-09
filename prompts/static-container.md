@@ -97,4 +97,4 @@ category-knowledge-difficulty-v1/
 - **多阶段渗透**: 外部打点 → 内网探测 → 横向移动
 - **自定义应用**: 逆向或审计自定义协议/应用
 
-> **API 自动导入（未来功能）**：导入字段映射见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise；先确认镜像 Ready。
