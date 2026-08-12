@@ -197,11 +197,10 @@ theory-topic/
 
 ## 导入流程
 
-理论题通过平台 UI 的 JSON 导入功能创建，**不走 API**。操作流程：
+Reviewer PASS 后优先使用 Open API，字段、Token 和幂等规则见 `prompts/_api.md`：
 
-1. 管理员进入 `管理 → 理论题库` → `JSON 导入`
-2. 上传 `theory-bank.json` 或 `theory-paper.json`
-3. 预览题目和答案，确认无误
-4. 创建 Theory 比赛，进入后台 `理论试卷`
-5. 从题库选择题目，设置分值
-6. 保存试卷并发放
+1. 导入题库：`python scripts/ctf_client.py theory import-questions --file theory-bank.json`
+2. 创建或确认目标为 Theory/Mixed 的比赛并取得 `gameId`
+3. 导入试卷：`python scripts/ctf_client.py theory import-paper --game-id GAME_ID --file theory-paper.json`
+4. 保存两个 operation 的 ID，轮询成功并记录 `result.items` 主键映射
+5. 无 API Token 时才使用后台 `管理 → 理论题库` 和 `理论试卷` 手工导入

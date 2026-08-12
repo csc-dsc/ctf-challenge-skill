@@ -14,6 +14,11 @@ Usage:
   ctf_client.py challenge get --game-id ID --challenge-id ID
   ctf_client.py challenge delete --game-id ID --challenge-id ID
   ctf_client.py challenge delete-batch --game-id ID --ids ID1,ID2,ID3
+  ctf_client.py awdp import --game-id ID --file JSON_FILE
+  ctf_client.py awdp import-batch --game-id ID --file JSON_FILE
+  ctf_client.py awdp list --game-id ID [--limit N] [--after ID]
+  ctf_client.py awdp get --game-id ID --service-id ID
+  ctf_client.py awdp delete --game-id ID --service-id ID
 
   ctf_client.py exercise import --file JSON_FILE
   ctf_client.py exercise create --file JSON_FILE
@@ -501,6 +506,33 @@ class PlatformClient:
         print(f"Deleted: {len(deleted)}, already missing: {len(missing)}")
         return result
 
+    # === AWDP service API ===
+
+    def import_awdp_service(self, game_id, service_def, idempotency_key=None):
+        return self._submit_operation(
+            "POST", f"/games/{game_id}/awdp-services", service_def,
+            f"awdp-import-{game_id}-{service_def.get('externalId', 'service')}", idempotency_key)
+
+    def import_awdp_services_batch(self, game_id, items, idempotency_key=None):
+        return self._submit_operation(
+            "POST", f"/games/{game_id}/awdp-services/batch", {"items": items},
+            f"awdp-batch-{game_id}-{items[0].get('externalId', 'batch') if items else 'batch'}",
+            idempotency_key)
+
+    def list_awdp_services(self, game_id, limit=50, after=None):
+        params = [f"limit={max(1, min(limit, 100))}"]
+        if after is not None:
+            params.append(f"after={int(after)}")
+        return self._request("GET", f"/games/{game_id}/awdp-services?{'&'.join(params)}")
+
+    def get_awdp_service(self, game_id, service_id):
+        return self._request("GET", f"/games/{game_id}/awdp-services/{service_id}")
+
+    def delete_awdp_service(self, game_id, service_id, idempotency_key=None):
+        return self._submit_operation(
+            "DELETE", f"/games/{game_id}/awdp-services/{service_id}", None,
+            f"awdp-delete-{game_id}-{service_id}", idempotency_key)
+
     # === Public Exercise API ===
 
     def list_exercises(self, limit=50, search=None, category=None,
@@ -516,8 +548,8 @@ class PlatformClient:
     def get_exercise(self, exercise_id):
         return self._request("GET", f"/exercises/{exercise_id}")
 
-    def _submit_exercise(self, method, path, body=None, key_prefix="exercise",
-                         idempotency_key=None):
+    def _submit_operation(self, method, path, body=None, key_prefix="operation",
+                          idempotency_key=None):
         key = idempotency_key or self._generate_idempotency_key(key_prefix)
         result = self._request(method, path, json_body=body,
                                extra_headers=self._idem_headers(key))
@@ -526,20 +558,42 @@ class PlatformClient:
 
     def import_exercises(self, items, idempotency_key=None):
         body = {"items": items}
-        return self._submit_exercise("POST", "/exercises/import", body,
-                                     "exercise-import", idempotency_key)
+        return self._submit_operation("POST", "/exercises/import", body,
+                                      "exercise-import", idempotency_key)
 
     def create_exercise(self, definition, idempotency_key=None):
-        return self._submit_exercise("POST", "/exercises", definition,
-                                     "exercise-create", idempotency_key)
+        return self._submit_operation("POST", "/exercises", definition,
+                                      "exercise-create", idempotency_key)
 
     def update_exercise(self, exercise_id, definition, idempotency_key=None):
-        return self._submit_exercise("PUT", f"/exercises/{exercise_id}",
-                                     definition, f"exercise-update-{exercise_id}", idempotency_key)
+        return self._submit_operation("PUT", f"/exercises/{exercise_id}",
+                                      definition, f"exercise-update-{exercise_id}", idempotency_key)
 
     def delete_exercise(self, exercise_id, idempotency_key=None):
-        return self._submit_exercise("DELETE", f"/exercises/{exercise_id}",
-                                     None, f"exercise-delete-{exercise_id}", idempotency_key)
+        return self._submit_operation("DELETE", f"/exercises/{exercise_id}",
+                                      None, f"exercise-delete-{exercise_id}", idempotency_key)
+
+    # === Academic and team provisioning API ===
+
+    def import_training_courses(self, items, idempotency_key=None):
+        return self._submit_operation(
+            "POST", "/training/courses/import", {"items": items},
+            "training-course-import", idempotency_key)
+
+    def import_theory_questions(self, items, idempotency_key=None):
+        return self._submit_operation(
+            "POST", "/theory/questions/import", {"items": items},
+            "theory-question-import", idempotency_key)
+
+    def import_theory_paper(self, game_id, definition, idempotency_key=None):
+        return self._submit_operation(
+            "PUT", f"/theory/games/{game_id}/paper", definition,
+            f"theory-paper-{game_id}", idempotency_key)
+
+    def import_teams(self, items, idempotency_key=None):
+        return self._submit_operation(
+            "POST", "/teams/import", {"items": items},
+            "team-import", idempotency_key)
 
     def get_operation(self, operation_id):
         return self._request("GET", f"/operations/{operation_id}")
@@ -631,6 +685,29 @@ def _make_parser():
     cdb.add_argument("--ids", required=True,
                      help="Comma-separated challenge IDs")
 
+    awdp = sub.add_parser("awdp", help="AWDP service management")
+    awdp_sub = awdp.add_subparsers(dest="subcommand")
+    awdp_sub.required = True
+    aimp = awdp_sub.add_parser("import", help="Import one AWDP service")
+    aimp.add_argument("--game-id", required=True, type=int)
+    aimp.add_argument("--file", required=True, help="AWDP service JSON")
+    aimp.add_argument("--idempotency-key", default=None)
+    aimb = awdp_sub.add_parser("import-batch", help="Import 1-100 AWDP services")
+    aimb.add_argument("--game-id", required=True, type=int)
+    aimb.add_argument("--file", required=True, help="JSON array or {items: [...]} ")
+    aimb.add_argument("--idempotency-key", default=None)
+    ail = awdp_sub.add_parser("list", help="List AWDP services")
+    ail.add_argument("--game-id", required=True, type=int)
+    ail.add_argument("--limit", type=int, default=50)
+    ail.add_argument("--after", type=int, default=None)
+    aig = awdp_sub.add_parser("get", help="Get an AWDP service")
+    aig.add_argument("--game-id", required=True, type=int)
+    aig.add_argument("--service-id", required=True, type=int)
+    ade = awdp_sub.add_parser("delete", help="Delete an AWDP service")
+    ade.add_argument("--game-id", required=True, type=int)
+    ade.add_argument("--service-id", required=True, type=int)
+    ade.add_argument("--idempotency-key", default=None)
+
     ex = sub.add_parser("exercise", help="Public practice exercise management")
     ex_sub = ex.add_subparsers(dest="subcommand")
     ex_sub.required = True
@@ -656,6 +733,34 @@ def _make_parser():
     ede = ex_sub.add_parser("delete", help="Delete one exercise")
     ede.add_argument("--exercise-id", required=True, type=int)
     ede.add_argument("--idempotency-key", default=None)
+
+    training = sub.add_parser("training", help="Training course provisioning")
+    training_sub = training.add_subparsers(dest="subcommand")
+    training_sub.required = True
+    tci = training_sub.add_parser("import-courses", help="Import 1-50 course bundles")
+    tci.add_argument("--file", required=True,
+                     help="JSON file containing {\"items\": [...]} or an array")
+    tci.add_argument("--idempotency-key", default=None)
+
+    theory = sub.add_parser("theory", help="Theory bank and paper provisioning")
+    theory_sub = theory.add_subparsers(dest="subcommand")
+    theory_sub.required = True
+    tqi = theory_sub.add_parser("import-questions", help="Import 1-1000 bank questions")
+    tqi.add_argument("--file", required=True,
+                     help="JSON file containing {\"items\": [...]} or an array")
+    tqi.add_argument("--idempotency-key", default=None)
+    tpi = theory_sub.add_parser("import-paper", help="Replace a Theory/Mixed game paper")
+    tpi.add_argument("--game-id", required=True, type=int)
+    tpi.add_argument("--file", required=True, help="TheoryPaperImportModel JSON")
+    tpi.add_argument("--idempotency-key", default=None)
+
+    team = sub.add_parser("team", help="Administrator team provisioning")
+    team_sub = team.add_subparsers(dest="subcommand")
+    team_sub.required = True
+    tim = team_sub.add_parser("import", help="Import 1-200 teams")
+    tim.add_argument("--file", required=True,
+                     help="JSON file containing {\"items\": [...]} or an array")
+    tim.add_argument("--idempotency-key", default=None)
 
     op = sub.add_parser("operation", help="Async operation status")
     op_sub = op.add_subparsers(dest="subcommand")
@@ -754,6 +859,24 @@ def main():
                 r = client.delete_challenges_batch(args.game_id, ids)
                 print_result(r)
 
+        elif args.command == "awdp":
+            if args.subcommand in ("import", "import-batch"):
+                with open(args.file, encoding="utf-8") as f:
+                    payload = json.load(f)
+                if args.subcommand == "import":
+                    print_result(client.import_awdp_service(args.game_id, payload, args.idempotency_key))
+                else:
+                    items = payload.get("items") if isinstance(payload, dict) else payload
+                    if not isinstance(items, list):
+                        raise PlatformValidationError("AWDP batch file must contain an items array")
+                    print_result(client.import_awdp_services_batch(args.game_id, items, args.idempotency_key))
+            elif args.subcommand == "list":
+                print_result(client.list_awdp_services(args.game_id, args.limit, args.after))
+            elif args.subcommand == "get":
+                print_result(client.get_awdp_service(args.game_id, args.service_id))
+            elif args.subcommand == "delete":
+                print_result(client.delete_awdp_service(args.game_id, args.service_id, args.idempotency_key))
+
         elif args.command == "exercise":
             if args.subcommand == "import":
                 with open(args.file, encoding="utf-8") as f:
@@ -775,6 +898,36 @@ def main():
                     print_result(client.update_exercise(args.exercise_id, json.load(f), args.idempotency_key))
             elif args.subcommand == "delete":
                 print_result(client.delete_exercise(args.exercise_id, args.idempotency_key))
+
+        elif args.command == "training":
+            with open(args.file, encoding="utf-8") as f:
+                payload = json.load(f)
+            items = payload.get("items") if isinstance(payload, dict) else payload
+            if not isinstance(items, list):
+                raise PlatformValidationError("training import file must contain an items array")
+            print_result(client.import_training_courses(items, args.idempotency_key))
+
+        elif args.command == "theory":
+            with open(args.file, encoding="utf-8") as f:
+                payload = json.load(f)
+            if args.subcommand == "import-questions":
+                items = payload.get("items") if isinstance(payload, dict) else payload
+                if not isinstance(items, list):
+                    raise PlatformValidationError("theory import file must contain an items array")
+                print_result(client.import_theory_questions(items, args.idempotency_key))
+            elif args.subcommand == "import-paper":
+                if not isinstance(payload, dict):
+                    raise PlatformValidationError("theory paper file must contain a JSON object")
+                print_result(client.import_theory_paper(
+                    args.game_id, payload, args.idempotency_key))
+
+        elif args.command == "team":
+            with open(args.file, encoding="utf-8") as f:
+                payload = json.load(f)
+            items = payload.get("items") if isinstance(payload, dict) else payload
+            if not isinstance(items, list):
+                raise PlatformValidationError("team import file must contain an items array")
+            print_result(client.import_teams(items, args.idempotency_key))
 
         elif args.command == "operation":
             if args.subcommand == "get":

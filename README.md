@@ -134,19 +134,18 @@ docker save → 镜像 tar
 | 忘导出镜像 tar | 平台没镜像可用 |
 | README 没脚本 | 提交者不知道填什么 |
 
-## 平台 API 自动导入（Exercise Open API v1）
+## 平台 API 自动导入（Open API v1）
 
-reviewer 通过后，Skill 可通过公共 Exercise Open API 导入题目；镜像注册仍使用 images API，题目写入使用 exercises API。
+reviewer 通过后，Skill 可导入公共 Exercise、培训课程、理论题库/试卷和战队；镜像注册仍使用 images API。
 
 ### 配置凭据
 
-三种方式（优先级从高到低）：
+两种方式（优先级从高到低）：
 
-1. **CLI 参数**：在对话中告知 `--host platform.example.com --token gzctf_pat_xxx`
-2. **环境变量**（推荐）：`GZCTF_HOST` + `GZCTF_TOKEN`
-3. **配置文件**：`~/.gzctf/config.json` — `{"host": "...", "token": "..."}`
+1. **环境变量**（推荐）：`GZCTF_HOST` + `GZCTF_TOKEN`
+2. **配置文件**：`~/.gzctf/config.json` — `{"host": "...", "token": "..."}`，权限设为 600
 
-Token 需在平台 "账户 → API Token" 创建。公共练习至少选择 `exercises:read`、`exercises:write`、`operations:read`，删除才增加 `exercises:delete`，并授权 `exercise:*`。每个 Token 对应明确的创建者，不得共享。
+Token 需在平台 "账户 → API Token" 创建。公共练习使用 `exercises:*` + `exercise:*`；培训使用 `training:write` + `training-course:*`；理论题库使用 `theory:write` + `theory-bank:*`；理论试卷使用 `theory:write` + `game:{id}`；战队使用管理员 Token 的 `teams:write` + `team:*`；比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{id}`。异步轮询增加 `operations:read`。每个 Token 对应明确创建者，不得共享。AWDP 导入成功后会自动深复制到题目池。
 
 ### 导入流程
 
@@ -170,6 +169,16 @@ Reviewer PASS
 - **离线/外网**：`docker save` 导出 tar，用 `upload-archive` 上传
 
 详细 API 规范见 `prompts/_api.md`。
+
+其他资源命令：
+
+```text
+python scripts/ctf_client.py training import-courses --file course-import.json
+python scripts/ctf_client.py awdp import --game-id 42 --file awdp-service.json
+python scripts/ctf_client.py theory import-questions --file theory-bank.json
+python scripts/ctf_client.py theory import-paper --game-id 42 --file theory-paper.json
+python scripts/ctf_client.py team import --file teams.json
+```
 
 ## 质量保证
 

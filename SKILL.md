@@ -25,7 +25,7 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
   → 如 PASS：交付文件包（D:\TASK\{type}\{name}\）
 ```
 
-> **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise 导入、查询、更新、删除和 operation 轮询。仅在 reviewer PASS 后导入。
+> **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise、培训课程、理论题库/试卷、战队和比赛 AWDP 导入及 operation 轮询。仅在 reviewer PASS 后导入；AWDP 成功后会自动收录到题目池。
 
 ## 题型路由
 
@@ -578,10 +578,10 @@ Agent(
 
 ---
 
-## Future: Platform API Import
+## Platform API Import
 
 `scripts/ctf_client.py` 已实现完整的 Open API v1 客户端（零外部依赖，Python stdlib only）。
-API 集成协议见 `prompts/_api.md`。公共练习使用 `/api/open/v1/exercises`，不是比赛题目的 challenges 路径。
+API 集成协议见 `prompts/_api.md`。公共练习、培训、理论、战队和比赛（含 AWDP）分别使用独立路径与资源授权，禁止把比赛 Token 当作 Exercise Token。
 
 Token 安全规则（使用 API 时必须遵守）：
 1. Token **只能**通过环境变量 `GZCTF_TOKEN` 或 `~/.gzctf/config.json` 传入
@@ -589,4 +589,6 @@ Token 安全规则（使用 API 时必须遵守）：
 3. 所有含 Token 的命令必须通过环境变量传递，禁止在命令行中明文写出 Token
 4. 每个 AI、CI 或操作者使用独立 Token；平台审计通过 token ID 和创建者用户 ID 追溯上传责任
 5. Exercise Token 至少需要 `exercises:write`、`exercises:read`、`operations:read`，资源授权为 `exercise:*`
-4. 配置文件权限应设为 600：`chmod 600 ~/.gzctf/config.json`
+6. 培训/理论使用 `training:write`/`theory:write`；战队使用仅管理员可签发的 `teams:write`
+7. 比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{gameId}`；AWDP 导入成功会自动深复制到题目池
+8. 配置文件权限应设为 600：`chmod 600 ~/.gzctf/config.json`

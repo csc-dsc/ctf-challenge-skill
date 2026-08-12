@@ -546,4 +546,4 @@ README 中粘贴完整的 exp.py 内容。PWN 题须注明：
 - 修补需要深入理解业务逻辑
 - Exp 可能涉及 ROP、堆利用等高级技术
 
-> **API 自动导入**：reviewer PASS 后按 `prompts/_api.md` 导入 Exercise；AWDP 的 Checker/Exp 仍需按平台专用配置提交。
+> **API 自动导入**：reviewer PASS 后，镜像 Ready 且 Token 拥有 `challenges:write` + `game:{gameId}` 时，按 `prompts/_api.md` 使用 `awdp import` 或 `awdp import-batch`。平台会创建/更新比赛 AWDP 服务，并自动以动态容器模式深复制进题目池；Checker/Exp、轮次和 Flag 模板一并提交。没有 Token 时只输出手动导入步骤。
