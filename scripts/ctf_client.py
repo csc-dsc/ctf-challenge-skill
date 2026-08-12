@@ -805,8 +805,6 @@ def main():
         print(f"Saved {key}={value}")
         return
 
-    client = PlatformClient(host, token)
-
     def print_result(result):
         if args.raw_json:
             print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -814,6 +812,9 @@ def main():
             print(json.dumps(result, indent=2, ensure_ascii=False))
 
     try:
+        # Validate credentials inside the same error boundary as API calls so
+        # missing host/token produces an actionable message without a traceback.
+        client = PlatformClient(host, token)
         # --- image commands ---
         if args.command == "image":
             if args.subcommand == "register-reference":
