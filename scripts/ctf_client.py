@@ -142,9 +142,16 @@ class PlatformClient:
 
     def __init__(self, host, token, timeout=30):
         if not host:
-            raise PlatformError("GZCTF_HOST is not set")
+            raise PlatformError(
+                "Platform address is required: set GZCTF_HOST or pass --host "
+                "(for example, http://10.24.0.27:8080)"
+            )
         if not token:
-            raise PlatformError("GZCTF_TOKEN is not set")
+            raise PlatformError(
+                "GZCTF_TOKEN is not set. Create a least-privilege platform API "
+                "token and provide it via the environment or local config; "
+                "never put it in a challenge file or command line."
+            )
         # Accept full URL (with protocol+port) or bare hostname
         if host.startswith("http://") or host.startswith("https://"):
             self.base_url = host.rstrip("/")

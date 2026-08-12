@@ -14,6 +14,13 @@
 导入平台时还需要由平台账户创建的 API Token。SSH 密码、数据库口令和平台登录密码不是 API
 Token，不能互相替代。历史题目池回填是例外：它只能由已登录的 Teacher+ 浏览器会话触发。
 
+导入前的交互顺序固定为：
+
+1. 用户提供明确的平台地址，例如 `http://10.24.0.27:8080`；未提供时不猜测、不导入。
+2. AI 提示用户在该平台的 API Token 页面创建独立、短期、最小权限 Token。
+3. 用户通过 `GZCTF_TOKEN` 环境变量或 `~/.gzctf/config.json` 提供 Token；AI 不生成、不索取、不回显、不保存 Token。
+4. Reviewer 通过后才运行导入，并保存 operation/resource ID（不保存凭据或 Flag）。
+
 ## 安装
 
 ```bash
@@ -246,6 +253,10 @@ python scripts/ctf_client.py operation wait --operation-id <operation-id>
 # 3. 在已登录的浏览器会话中打开 /practice，创建实例并确认入口；
 #    令 SOLVE_TARGET=<displayed-url> 后运行内部 solve.py 验证 Flag。
 ```
+
+CLI 在缺少平台地址时会明确报错并给出 `GZCTF_HOST` 示例；地址存在但缺少 Token 时会提示
+创建最小权限 Token。提交比赛题目使用 `challenge import` 或 `challenge import-batch`，
+提交公共练习使用 `exercise import`；两者均要求对应 scope 和资源授权。
 
 外部 API 写入全部使用 `Idempotency-Key`，客户端会生成默认值。对于可审计的批量/CI 工作流，
 显式传入稳定 key，并把 operation ID 保存到不含凭据的 `batch-result.json`。

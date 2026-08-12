@@ -29,6 +29,12 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
 
 > **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise、培训课程、理论题库/试卷、战队和比赛 AWDP 导入及 operation 轮询。仅在 reviewer PASS 后导入；AWDP 成功后会自动收录到题目池。
 
+调用导入前必须先确认用户提供了平台地址（例如 `http://10.24.0.27:8080`）。如果没有地址，
+停止导入并提示用户提供 `GZCTF_HOST`；不要从历史上下文、SSH 主机或题目文件猜测地址。
+地址确认后再检查 Token。AI 可以指导用户在平台的 API Token 页面创建“独立、短期、最小权限”
+Token，但不得代用户生成、索取、回显或保存 Token。用户应通过 `GZCTF_TOKEN` 或
+`~/.gzctf/config.json` 提供它，然后 AI 才能运行 CLI。
+
 ## 题型路由
 
 根据用户需求自动匹配题型，加载对应 prompt 模板：
