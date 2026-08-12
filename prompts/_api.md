@@ -103,7 +103,8 @@ creating a source resource intended for the pool, satisfy these prerequisites:
 |---|---|---|
 | Game or training challenge | Container challenge type; `containerImage` or `imageTemplateId`; at least one `flags` entry or `flagTemplate` | Clones statement, metadata, attachment, flags, and runtime settings with source tracing |
 | AWDP service | Non-empty `imageName`; matching Ready Docker image template; non-empty `flagTemplate` | Clones as an isolated dynamic-container practice exercise |
-| Theory, attachment-only, or incomplete container challenge | Does not meet the above conditions | Intentionally not collected |
+| Theory or resource without attachment/image and Flag | Does not meet the above conditions | Intentionally not collected |
+| Attachment challenge with a valid attachment and Flag | Independently solvable | Collected as an attachment exercise |
 
 Collection never reuses a live competition instance. It deep-copies the source
 definition and preserves provenance (`Game`, `Training`, or AWDP source ID).

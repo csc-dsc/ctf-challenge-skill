@@ -197,7 +197,7 @@ Token 需在平台 "账户 → API Token" 创建。公共练习使用 `exercises
 
 - 比赛/培训题：必须是容器题，拥有 `containerImage` 或 `imageTemplateId`，并且有 Flag 或 `flagTemplate`。
 - AWDP：必须有 `flagTemplate`，且 `imageName` 必须对应平台中状态为 Ready 的 Docker 镜像模板。
-- 理论题、纯附件题、没有镜像或 Flag 的容器题会被标记为不符合资格，不会伪造运行环境后收录。
+- 理论题、没有附件/镜像且没有 Flag 的不完整资源会被标记为不符合资格；纯附件题只要有有效附件和 Flag，就可以收录，不要求镜像。
 
 平台升级前的历史资源不会自动批量写入。Teacher+ 用户应在已登录平台会话中执行
 `POST /api/Exercise/pool/backfill`；响应中的 `ineligible` 表示上述前置条件缺失，`failed`
