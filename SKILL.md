@@ -27,13 +27,24 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
   → 如 PASS：导出镜像、运行 solve.py，并交付文件包（D:\TASK\{type}\{name}\）
 ```
 
-> **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise、培训课程、理论题库/试卷、战队和比赛 AWDP 导入及 operation 轮询。仅在 reviewer PASS 后导入；AWDP 成功后会自动收录到题目池。
+> **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise、培训课程、理论题库/试卷、战队、比赛题目和 AWDP 导入及 operation 轮询。仅在 reviewer PASS 后导入；AWDP 成功后会自动收录到题目池。
 
 调用导入前必须先确认用户提供了平台地址（例如 `http://10.24.0.27:8080`）。如果没有地址，
 停止导入并提示用户提供 `GZCTF_HOST`；不要从历史上下文、SSH 主机或题目文件猜测地址。
 地址确认后再检查 Token。AI 可以指导用户在平台的 API Token 页面创建“独立、短期、最小权限”
 Token，但不得代用户生成、索取、回显或保存 Token。用户应通过 `GZCTF_TOKEN` 或
 `~/.gzctf/config.json` 提供它，然后 AI 才能运行 CLI。
+
+### 独立练习题导入
+
+不要把题目池收录理解为必须从比赛或培训复制。对没有来源资源的题目，直接生成 Exercise
+导入包并调用 `exercise import` 即可进入练习题池。Reverse、Crypto、Forensics 等附件题
+只要有附件、有效静态 `flags` 和通过 Reviewer 的 `solve.py`，同样直接收录；容器题还必须
+提供 Ready 镜像/模板、运行端口和 `flagTemplate`（动态题）或 `flags`（静态题）。
+
+生成每个 Exercise 项时同步填写 `externalId`、`title`、`content`、`category`、
+`difficulty`、`tags`、`type` 及题型所需的 `attachment`/`containerImage`/`imageTemplateId`
+和 Flag 字段。导入成功后记录 Exercise resource ID，不伪造比赛或培训来源。
 
 ## 题型路由
 

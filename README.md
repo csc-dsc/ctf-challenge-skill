@@ -171,7 +171,16 @@ docker save → 镜像 tar
 
 ## 平台 API 自动导入（Open API v1）
 
-reviewer 通过后，Skill 可导入公共 Exercise、培训课程、理论题库/试卷和战队；镜像注册仍使用 images API。
+reviewer 通过后，Skill 可直接导入公共 Exercise，也可导入培训课程、理论题库/试卷、战队、比赛题目和 AWDP；镜像注册仍使用 images API。
+
+### 直接导入练习题（不依赖比赛或培训）
+
+`exercise import` 是独立的一级导入流程，不要求题目先存在于比赛或培训课程中。Web、Pwn、Reverse、Crypto、Misc、Forensics 等题型都可以直接进入练习题池：
+
+- `StaticAttachment`（例如 Reverse 二进制、流量包、压缩包）提供附件 URL/SHA256 和一个或多个静态 `flags`；Reviewer 验证 `solve.py` 能得到 Flag 后直接收录。
+- `DynamicAttachment` 提供附件和动态 Flag 规则；`StaticContainer`/`DynamicContainer` 提供 Ready 镜像或模板、端口和 Flag/`flagTemplate`。
+- 每项必须携带 `category`、`difficulty`、`tags`、题面 `content`、稳定 `externalId` 以及匹配题型的附件/镜像/Flag 字段。Skill 生成题目包时自动填写这些元数据。
+- 直接导入成功后资源来源为 `Exercise`，与比赛/培训/AWDP 深复制到题库的来源收录流程相互独立。
 
 ### 配置凭据
 

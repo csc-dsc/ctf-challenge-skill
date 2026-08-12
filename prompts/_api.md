@@ -56,6 +56,11 @@ key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idem
 
 ## 公共练习
 
+公共 Exercise 支持独立直接导入，不要求先创建比赛或培训资源。Reverse 等附件题进入题目池
+的标准方式就是 `exercise import`：静态附件带 `attachment` 与 `flags`，动态附件带附件与
+动态 Flag 规则，容器题带 Ready 镜像/模板及运行配置。所有题型都必须同时提供
+`category`、`difficulty`、`tags`、题面和稳定 `externalId`；这些字段由 Skill 自动填充。
+
 `POST /exercises/import`：
 
 ```json
@@ -81,9 +86,12 @@ key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idem
 }]}
 ```
 
-批量 1-100 题。静态题提供 `flags`；动态容器提供 `flagTemplate`。附件只支持绝对
+批量 1-100 题。静态附件题提供 `flags`；动态附件/动态容器提供 `flagTemplate`。附件只支持绝对
 HTTP/HTTPS URL，不支持 multipart。创建单题使用相同字段但无 `externalId`；PUT 是
 全量替换。
+
+直接导入成功即创建 Exercise 题目池资源，来源标记为 `Exercise`；它与比赛、培训和 AWDP
+资源满足运行资格后自动深复制到题库的来源收录流程相互独立。
 
 ## Exercise pool collection
 
