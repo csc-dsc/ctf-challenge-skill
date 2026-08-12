@@ -4,6 +4,7 @@ description: >
   为隐域安全综合演练平台创建高质量 CTF/AWDP/理论 题目。
   支持 StaticAttachment, StaticContainer, DynamicAttachment, DynamicContainer,
   AWDP, Windows VM, Theory 七种题型。
+  支持批量题目计划、平台 Open API 导入和 Exercise 题目池收录。
   采用 Reviewer agent 做质量门禁，最多 3 轮修订，端到端 Docker 测试通过才交付。
 ---
 
@@ -17,12 +18,13 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
 ```
 用户描述题目需求
   → 你分析需求，确定题型
+  → 批量需求先建立 batch-manifest.json，再逐题创建完整交付包
   → 你创建完整题目交付包（所有文件）
   → 你本地 docker build + test（容器题）
   → 你 spawn ctf-reviewer agent（独立验证）
   → review.md 返回结果
   → 如 CRITICAL/HIGH 问题：修复 → 重新 spawn reviewer（最多 3 轮）
-  → 如 PASS：交付文件包（D:\TASK\{type}\{name}\）
+  → 如 PASS：导出镜像、运行 solve.py，并交付文件包（D:\TASK\{type}\{name}\）
 ```
 
 > **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise、培训课程、理论题库/试卷、战队和比赛 AWDP 导入及 operation 轮询。仅在 reviewer PASS 后导入；AWDP 成功后会自动收录到题目池。
@@ -112,9 +114,11 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
 
 ```
 challenge-name/
-├── README.md                 # 题目说明、部署参数、验收步骤
+├── challenge.yaml            # 可机读元数据：类型、资源、考点、导入字段
+├── README.md                 # 人工阅读的题目说明、部署参数、验收步骤
 ├── statement.md              # 选手看到的题面
 ├── writeup.md                # 标准解法（内部资料，不发给选手）
+├── solve.py                  # 可执行标准解法；成功时打印 Flag 并以 0 退出
 ├── flag-policy.md            # Flag 读取方式和规则
 ├── attachments/              # 对外附件
 ├── source/                   # 题目源码
@@ -131,6 +135,28 @@ challenge-name/
     ├── image.sha256
     └── build-notes.md
 ```
+
+`challenge.yaml`、`solve.py` 与 `README.md` 必须相互一致。`challenge.yaml` 用于
+批量审计和导入前复核，不得写入 Token、真实生产 Flag、平台密码或内部地址。
+
+## 批量出题
+
+当用户要求多题、专题或题库时，先在输出根目录建立 `batch-manifest.json`，再逐题执行
+完整 Builder/Reviewer 流程；不得只生成题面或以未测试样例凑数量。
+
+```json
+{
+  "batchId": "web-foundation-20260812",
+  "target": "exercise",
+  "items": [
+    {"id": "web-ssti-easy-v1", "type": "DynamicContainer", "category": "Web", "difficulty": "Easy", "knowledge": ["Server-side Template Injection"]}
+  ]
+}
+```
+
+每个 `id` 对应一个题目目录。完成时写 `batch-result.json`，记录每题的 reviewer verdict、
+镜像 digest/附件 SHA256、导入 operation ID 与平台 resource ID；绝不记录 Token 或 Flag。
+批次失败时只重试失败项，并沿用原 Idempotency-Key 查询 operation，不重复创建资源。
 
 README.md 必须包含：
 ```markdown

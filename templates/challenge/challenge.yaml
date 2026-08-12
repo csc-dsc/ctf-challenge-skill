@@ -1,0 +1,19 @@
+# Machine-readable challenge metadata. Keep it aligned with README.md.
+# Do not store tokens, platform passwords, or a production flag in this file.
+category: Web
+difficulty: Easy
+score: 500
+type: DynamicContainer
+environment: Docker
+port: 80
+resources:
+  cpu: 1
+  memoryMiB: 256
+  storageMiB: 512
+networkMode: Isolated
+flagMode: dynamic
+knowledge:
+  - Server-side Template Injection
+authors:
+  - replace-with-author
+

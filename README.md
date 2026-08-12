@@ -1,14 +1,18 @@
 # CTF Challenge Creator Skill
 
-为 [隐域安全综合演练平台](https://github.com/GZTimeWalker/GZCTF) 创建符合规范的 CTF/AWDP/理论题目。
+为隐域安全综合演练平台创建、验证、批量导入和运营 CTF/AWDP/理论题目。
 
-一个 Claude Code Skill，通过自然语言描述需求，自动生成完整题目交付包，Docker 端到端测试通过后才交付。
+这是一个可由 Codex 或 Claude Code 使用的本地 Skill。它将自然语言需求变成完整题目交付包，
+通过 Docker 和独立 Reviewer 验收后，可选择用 Open API 导入比赛、AWDP、培训、理论或公共练习。
 
 ## 前置要求
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 已安装并登录
 - [Docker](https://docs.docker.com/get-docker/) 已安装并运行
 - Git
+
+导入平台时还需要由平台账户创建的 API Token。SSH 密码、数据库口令和平台登录密码不是 API
+Token，不能互相替代。历史题目池回填是例外：它只能由已登录的 Teacher+ 浏览器会话触发。
 
 ## 安装
 
@@ -59,6 +63,25 @@ Skill 会自动：
 5. 导出镜像 tar 包
 6. 输出到对应目录
 
+### 批量专题或题库
+
+批量任务先建立 `batch-manifest.json`，每题仍必须独立经过构建、解法复现和 Reviewer 门禁。
+
+```json
+{
+  "batchId": "web-foundation-20260812",
+  "target": "exercise",
+  "items": [
+    {"id":"web-ssti-easy-v1","type":"DynamicContainer","category":"Web","difficulty":"Easy","knowledge":["Server-side Template Injection"]},
+    {"id":"web-idor-easy-v1","type":"StaticAttachment","category":"Web","difficulty":"Easy","knowledge":["IDOR"]}
+  ]
+}
+```
+
+结束时生成不含凭据或 Flag 的 `batch-result.json`，包括 reviewer 判定、镜像 digest 或附件
+SHA256、异步 operation ID 和平台资源 ID。仅重试失败项；未知写入结果应查询既有 operation，
+不要用新 Idempotency-Key 盲目重复导入。
+
 ## 工作流
 
 ```
@@ -79,9 +102,11 @@ Skill 会自动：
 ```
 D:\TASK\{题型}\{题目名}      # 如 D:\TASK\awdp\awdp-pwn-bof-easy-v1
 ├── {题目名}.tar               # Docker 镜像 tar，上传平台用
+├── challenge.yaml              # 可机读元数据与导入前复核依据
 ├── README.md                  # 完整部署说明 + Checker/Exp 脚本
 ├── statement.md               # 选手题面
 ├── writeup.md                 # 标准解法（内部，不发给选手）
+├── solve.py                    # 内部验收解题脚本，成功时打印 Flag 并退出 0
 ├── flag-policy.md             # Flag 规则
 ├── attachments/               # 对外附件
 ├── source/                    # 服务源码
@@ -96,6 +121,9 @@ D:\TASK\{题型}\{题目名}      # 如 D:\TASK\awdp\awdp-pwn-bof-easy-v1
     ├── {题目名}-fix.tgz       # 修补包
     └── patch-example/
 ```
+
+`challenge.yaml` 的分类、难度、类型、端口、资源、网络和 Flag 模式必须与 README、题面和
+运行环境一致。`solve.py` 必须从 `SOLVE_TARGET` 接收部署入口，不能硬编码生产 Flag。
 
 ## AWDP 题目完整流程
 
@@ -160,6 +188,9 @@ Token 需在平台 "账户 → API Token" 创建。公共练习使用 `exercises
 才表示处理失败。这个维护接口不是 Open API，不能用 `ctf_client.py`、API Token、SSH
 密码或直接数据库写入替代。详细字段与验收步骤见 `prompts/_api.md`。
 
+回填后在 `/practice` 按来源和分类核查题目；对容器题启动实例并确认页面显示访问入口、运行状态
+和剩余时间。没有入口时先检查实例状态、调度日志、节点可达性和端口映射，不要直接改数据库。
+
 ### 导入流程
 
 ```
@@ -198,6 +229,26 @@ python scripts/ctf_client.py team import --file teams.json
 - **Reviewer agent**: 独立运行 50+ 项规范检查 + Docker 测试
 - **最多 3 轮修订**: CRITICAL 必须修复，HIGH 应该修复
 - **validate-package.sh**: 提交前可手动运行 `bash scripts/validate-package.sh {题目目录}` 快速检查
+- **结构化证据**：每个新题使用 `challenge.yaml` 与 `solve.py`；批量任务再保留 manifest/result
+- **导入后验收**：operation 成功不等于可用。对至少一个容器题在真实权限会话中创建实例、确认访问入口并用 `solve.py` 获取 Flag
+
+## 平台导入验收
+
+```bash
+# 1. 先检查本地包；容器题还需 Docker build/compose/solve 自测
+bash scripts/validate-package.sh D:/TASK/dynamic-container/web-ssti-easy-v1
+python scripts/ctf_client.py --help
+
+# 2. 镜像 Ready 后导入。Token 仅通过环境变量或 ~/.gzctf/config.json 提供。
+python scripts/ctf_client.py exercise import --file exercise-import.json
+python scripts/ctf_client.py operation wait --operation-id <operation-id>
+
+# 3. 在已登录的浏览器会话中打开 /practice，创建实例并确认入口；
+#    令 SOLVE_TARGET=<displayed-url> 后运行内部 solve.py 验证 Flag。
+```
+
+外部 API 写入全部使用 `Idempotency-Key`，客户端会生成默认值。对于可审计的批量/CI 工作流，
+显式传入稳定 key，并把 operation ID 保存到不含凭据的 `batch-result.json`。
 
 ## 仓库结构
 
@@ -221,7 +272,8 @@ ctf-challenge-skill/
 │   ├── challenge/             # 交付包目录模板
 │   └── docker-variants/       # 各语言 Dockerfile（Python/Node/PHP/xinetd）
 ├── scripts/
-│   └── validate-package.sh    # 包校验脚本
+│   ├── validate-package.sh    # 包校验脚本
+│   └── ctf_client.py          # Open API v1 CLI（题目、AWDP、练习、operation）
 └── spec/
     └── 出题规范.md            # 完整规范参考文档
 ```

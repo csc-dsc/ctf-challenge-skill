@@ -28,6 +28,36 @@ for f in "${required_files[@]}"; do
     fi
 done
 
+# Structured metadata and executable acceptance evidence are mandatory for new
+# packages. Keep legacy packages usable while making the missing migration clear.
+if [ -f "challenge.yaml" ]; then
+    echo "  [OK] challenge.yaml"
+    for key in category difficulty score type environment flagMode knowledge; do
+        if grep -qE "^${key}:" challenge.yaml; then
+            echo "  [OK] metadata: $key"
+        else
+            echo "  [FAIL] challenge.yaml missing $key"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+else
+    echo "  [WARN] challenge.yaml missing (required for newly generated packages)"
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+if [ -f "solve.py" ]; then
+    echo "  [OK] solve.py"
+    if grep -q 'SOLVE_TARGET' solve.py; then
+        echo "  [OK] solve.py uses SOLVE_TARGET"
+    else
+        echo "  [FAIL] solve.py missing SOLVE_TARGET"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo "  [WARN] solve.py missing (required for newly generated packages)"
+    WARNINGS=$((WARNINGS + 1))
+fi
+
 # Check naming convention (category-knowledge-difficulty-version)
 if echo "$DIR_NAME" | grep -qiE '^[a-z]+-[a-z]+-[a-z]+-v[0-9]+$'; then
     echo "  [OK] Naming: $DIR_NAME"
@@ -159,7 +189,7 @@ if [ -d "source" ] && [ "$(ls -A source 2>/dev/null)" ]; then
     echo ""
     echo "--- Source checks ---"
     # Check for hardcoded secrets
-    if grep -r 'sk-' source/ 2>/dev/null | grep -v '.gitkeep'; then
+    if grep -r 'sk-' source/ 2>/dev/null | grep -v '.gitkeep' >/dev/null; then
         echo "  [WARN] Possible API key in source/"
         WARNINGS=$((WARNINGS + 1))
     fi
@@ -177,7 +207,7 @@ if [ -d "awdp" ] && [ "$(ls -A awdp 2>/dev/null)" ]; then
     echo "--- AWDP checks ---"
 
     # Check for MSG_DONTWAIT (Windows incompatible)
-    if grep -r 'MSG_DONTWAIT' awdp/ 2>/dev/null; then
+    if grep -r 'MSG_DONTWAIT' awdp/ 2>/dev/null >/dev/null; then
         echo "  [FAIL] MSG_DONTWAIT found in awdp/ - not available on Windows, use sock.settimeout()"
         ERRORS=$((ERRORS + 1))
     fi

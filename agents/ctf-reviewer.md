@@ -26,6 +26,9 @@ color: red
 
 用 Glob 列出 challenge 目录下所有文件，然后逐个 Read 检查。
 
+读取 `challenge.yaml`。确认其中的类型、环境、端口、资源、网络、Flag 模式和考点与 README、
+题面和 Docker 配置一致。读取 `solve.py`；它是内部验收证据，不能包含硬编码生产 Flag。
+
 ### Step 3: 执行 Docker 测试（如有 docker/ 目录）
 
 按顺序执行，任一步失败即记录到 issues：
@@ -57,6 +60,10 @@ docker compose -f docker-compose.test.yml exec -T challenge id
 # 清理（测 SIGTERM 退出速度）
 time docker compose -f docker-compose.test.yml down
 # 应在 10 秒内完成
+
+# 标准解法（容器题必须在本地测试入口复现）
+SOLVE_TARGET=http://127.0.0.1:18080 python3 solve.py
+# 应打印通过实际漏洞/附件解析得到的 Flag，并以 0 退出
 ```
 
 ### Step 4: 逐文件合规检查
@@ -107,6 +114,13 @@ time docker compose -f docker-compose.test.yml down
 - [ ] R12: 包含附件列表（如有）
 - [ ] R13: 包含正确解法验证步骤
 - [ ] R14: 包含清理方法
+
+### 结构化元数据和验收脚本
+- [ ] M01: `challenge.yaml` 存在且包含 category/difficulty/score/type/environment/flagMode/knowledge
+- [ ] M02: 容器题 metadata 的 port/resources/networkMode 与 Docker、README 一致
+- [ ] M03: metadata 不含 Token、平台密码、生产 Flag 或内部地址
+- [ ] M04: `solve.py` 存在、使用 `SOLVE_TARGET`，成功路径退出 0
+- [ ] M05: `solve.py` 实测取得 Flag，不是打印占位值或硬编码 Flag
 
 ### statement.md 检查
 - [ ] S01: 包含任务背景

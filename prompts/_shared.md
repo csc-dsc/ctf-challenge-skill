@@ -19,10 +19,12 @@
 
 ## 交付包必须包含
 
+- `challenge.yaml`：可机读元数据。必须含 `category`、`difficulty`、`score`、`type`、`environment`、`flagMode`、`knowledge`；容器题还必须含 `port`、`resources`、`networkMode`。
 - `README.md`：完整元数据（赛制、分类、难度、初始分、类型、环境、镜像、端口、资源、网络、Flag规则、附件、验证、清理）
 - `statement.md`：选手视角题面，不含任何答案或提示
 - `writeup.md`：完整解题步骤（内部资料）
 - `flag-policy.md`：Flag 格式、读取方式、生命周期
+- `solve.py`：内部验收解题脚本。必须从 `SOLVE_TARGET` 读取目标（缺省为本地 compose 地址），成功打印实际获取的 Flag 并以 0 退出；不得硬编码生产 Flag。
 
 ## 题面规范
 
@@ -59,6 +61,8 @@ except socket.timeout:
 - [ ] 所有文件名仅用安全字符
 - [ ] 无作者个人信息、绝对路径、编辑器缓存
 - [ ] Checker/Exp 无 Windows 不兼容 API（MSG_DONTWAIT 等）
+- [ ] `challenge.yaml` 与 README、Docker 端口、资源和 Flag 模式一致
+- [ ] `python3 solve.py` 在本地测试环境成功取得 Flag；部署到平台后以实际入口再次验证
 
 ## 难度设计通用原则
 
