@@ -592,3 +592,5 @@ Token 安全规则（使用 API 时必须遵守）：
 6. 培训/理论使用 `training:write`/`theory:write`；战队使用仅管理员可签发的 `teams:write`
 7. 比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{gameId}`；AWDP 导入成功会自动深复制到题目池
 8. 配置文件权限应设为 600：`chmod 600 ~/.gzctf/config.json`
+9. 仅把可独立运行且可验证 Flag 的资源交给自动收录：比赛/培训题需要容器类型、镜像或模板、Flag 或 `flagTemplate`；AWDP 还需要匹配的 Ready Docker 模板和非空 `flagTemplate`
+10. 历史题目池回填只能由已登录的 Teacher+ 平台会话调用内部 `POST /api/Exercise/pool/backfill`；不得将其加入 Token CLI、不得使用 SSH 密码或直接写数据库绕过授权

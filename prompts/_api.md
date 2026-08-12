@@ -44,6 +44,11 @@ POST   /games/{gameId}/awdp-services/batch-delete
 GET    /operations/{operationId}
 ```
 
+`/api/Exercise/pool/backfill` is deliberately not an Open API route. It is an
+administrator/teacher browser-session maintenance action for historical data;
+do not call it with an API Token, and never replace it with direct database
+writes. See **Exercise pool collection** below.
+
 所有写请求都必须带唯一、稳定的 `Idempotency-Key`（ASCII，1-128 字符）。响应为
 `202 Accepted` 和 operation；轮询到 `Succeeded` 或 `Failed`。相同 token、路由、
 key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idempotency_conflict`。
@@ -79,6 +84,37 @@ key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idem
 批量 1-100 题。静态题提供 `flags`；动态容器提供 `flagTemplate`。附件只支持绝对
 HTTP/HTTPS URL，不支持 multipart。创建单题使用相同字段但无 `externalId`；PUT 是
 全量替换。
+
+## Exercise pool collection
+
+New or updated game, training, and AWDP resources are collected into the
+practice pool only when they are independently runnable and verifiable. Before
+creating a source resource intended for the pool, satisfy these prerequisites:
+
+| Source | Required for collection | Pool result |
+|---|---|---|
+| Game or training challenge | Container challenge type; `containerImage` or `imageTemplateId`; at least one `flags` entry or `flagTemplate` | Clones statement, metadata, attachment, flags, and runtime settings with source tracing |
+| AWDP service | Non-empty `imageName`; matching Ready Docker image template; non-empty `flagTemplate` | Clones as an isolated dynamic-container practice exercise |
+| Theory, attachment-only, or incomplete container challenge | Does not meet the above conditions | Intentionally not collected |
+
+Collection never reuses a live competition instance. It deep-copies the source
+definition and preserves provenance (`Game`, `Training`, or AWDP source ID).
+
+### Historical backfill
+
+After deploying collection to an existing platform, historical records remain
+unchanged until a Teacher+ user invokes:
+
+```text
+POST /api/Exercise/pool/backfill
+```
+
+Use the already authenticated platform browser session. The JSON response has
+`gameCollected`, `trainingCollected`, `awdpCollected`, `ineligible`, and
+`failed`. Treat `ineligible` as a source-data prerequisite failure, not an
+import error. Correct the source image/template/Flag configuration, then invoke
+the same authorized maintenance action again. Do not expose this endpoint in
+`ctf_client.py` and do not use SSH credentials as platform credentials.
 
 ## 培训课程
 

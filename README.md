@@ -147,6 +147,19 @@ reviewer 通过后，Skill 可导入公共 Exercise、培训课程、理论题�
 
 Token 需在平台 "账户 → API Token" 创建。公共练习使用 `exercises:*` + `exercise:*`；培训使用 `training:write` + `training-course:*`；理论题库使用 `theory:write` + `theory-bank:*`；理论试卷使用 `theory:write` + `game:{id}`；战队使用管理员 Token 的 `teams:write` + `team:*`；比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{id}`。异步轮询增加 `operations:read`。每个 Token 对应明确创建者，不得共享。AWDP 导入成功后会自动深复制到题目池。
 
+### 练习池自动收录与历史回填
+
+新建或更新的比赛、培训和 AWDP 资源只有在可独立运行、可验证 Flag 时才会进入公共练习池：
+
+- 比赛/培训题：必须是容器题，拥有 `containerImage` 或 `imageTemplateId`，并且有 Flag 或 `flagTemplate`。
+- AWDP：必须有 `flagTemplate`，且 `imageName` 必须对应平台中状态为 Ready 的 Docker 镜像模板。
+- 理论题、纯附件题、没有镜像或 Flag 的容器题会被标记为不符合资格，不会伪造运行环境后收录。
+
+平台升级前的历史资源不会自动批量写入。Teacher+ 用户应在已登录平台会话中执行
+`POST /api/Exercise/pool/backfill`；响应中的 `ineligible` 表示上述前置条件缺失，`failed`
+才表示处理失败。这个维护接口不是 Open API，不能用 `ctf_client.py`、API Token、SSH
+密码或直接数据库写入替代。详细字段与验收步骤见 `prompts/_api.md`。
+
 ### 导入流程
 
 ```
