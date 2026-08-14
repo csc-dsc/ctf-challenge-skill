@@ -12,14 +12,20 @@
 - Git
 
 导入平台时还需要由平台账户创建的 API Token。SSH 密码、数据库口令和平台登录密码不是 API
-Token，不能互相替代。历史题目池回填是例外：它只能由已登录的 Teacher+ 浏览器会话触发。
+Token，不能互相替代。
 
 导入前的交互顺序固定为：
 
-1. 用户提供明确的平台地址，例如 `http://10.24.0.27:8080`；未提供时不猜测、不导入。
+1. 用户为本次任务提供明确的平台地址 `GZCTF_HOST`；未提供时不猜测、不导入，也不复用历史地址。
 2. AI 提示用户在该平台的 API Token 页面创建独立、短期、最小权限 Token。
 3. 用户通过 `GZCTF_TOKEN` 环境变量或 `~/.gzctf/config.json` 提供 Token；AI 不生成、不索取、不回显、不保存 Token。
 4. Reviewer 通过后才运行导入，并保存 operation/resource ID（不保存凭据或 Flag）。
+
+导入前，Skill 必须按本次目标先输出最小权限清单。容器题至少分为镜像发布和资源导入两个
+阶段：例如 Web 公共练习需要镜像发布 Token（`images:write`、`operations:read`）以及练习
+导入 Token（附件上传需 `assets:write`；练习需 `exercises:read`、`exercises:write`、`operations:read`、`exercise:*`）。附件型
+公共练习不需要镜像权限；课程、比赛、AWDP、理论和战队则按其目标资源使用独立 scope/resource
+grant。完整矩阵见 `SKILL.md` 和 `prompts/_api.md`。
 
 ## 安装
 
@@ -34,17 +40,27 @@ bash install.sh        # Linux/Mac
 
 验证安装：在 Claude Code 中输入 `/ctf-challenge-creator`，如果显示 Skill 加载成功即可。
 
+### 其他代理适配
+
+Skill 的规范入口是 `SKILL.md`，因此不依赖 Claude 专有 API。Claude Code 使用安装脚本后可通过
+`/ctf-challenge-creator` 调用；Codex 可从 `.agents/skills/ctf-challenge-creator/SKILL.md`
+或仓库根目录的 `SKILL.md` 加载，并按其中引用读取 `prompts/`、`spec/`、`templates/` 和
+`scripts/`。其他支持 Markdown 指令/工具技能的代理也可将 `SKILL.md` 作为系统提示或项目技能
+入口，保持同样的文件相对路径。只有 Claude Code 会自动注册 `agents/ctf-reviewer.md`；其他代理
+应将该文件内容作为独立 reviewer 子代理提示，或手动执行等价审查。所有代理都必须在导入前由
+用户提供本次 `GZCTF_HOST` 和 Token，不能复用历史凭据。
+
 ## 支持的题型
 
 | 题型 | 关键词 | 输出目录 |
 |------|--------|---------|
-| DynamicContainer | Web/PWN 动态容器 | `D:\TASK\dynamic-container\` |
-| StaticContainer | 固定靶机 | `D:\TASK\static-container\` |
-| StaticAttachment | Crypto/Reverse/取证附件 | `D:\TASK\static-attachment\` |
-| DynamicAttachment | 每队独立附件 | `D:\TASK\dynamic-attachment\` |
-| **AWDP** | 攻防对抗、Checker、Exp、修补 | `D:\TASK\awdp\` |
-| Windows VM | Windows 虚拟机 | `D:\TASK\windows-vm\` |
-| Theory | 单选/多选/判断 | `D:\TASK\theory\` |
+| DynamicContainer | Web/PWN 动态容器 | `<用户提供的输出根目录>\<题目名>` |
+| StaticContainer | 固定靶机 | `<用户提供的输出根目录>\<题目名>` |
+| StaticAttachment | Crypto/Reverse/取证附件 | `<用户提供的输出根目录>\<题目名>` |
+| DynamicAttachment | 每队独立附件 | `<用户提供的输出根目录>\<题目名>` |
+| **AWDP** | 攻防对抗、Checker、Exp、修补 | `<用户提供的输出根目录>\<题目名>` |
+| Windows VM | Windows 虚拟机 | `<用户提供的输出根目录>\<题目名>` |
+| Theory | 单选/多选/判断 | `<用户提供的输出根目录>\<题目名>` |
 
 ## 使用方法
 
@@ -107,7 +123,7 @@ SHA256、异步 operation ID 和平台资源 ID。仅重试失败项；未知写
 ## 交付物结构
 
 ```
-D:\TASK\{题型}\{题目名}      # 如 D:\TASK\awdp\awdp-pwn-bof-easy-v1
+<user-provided-output-root>\{题目名}
 ├── {题目名}.tar               # Docker 镜像 tar，上传平台用
 ├── challenge.yaml              # 可机读元数据与导入前复核依据
 ├── README.md                  # 完整部署说明 + Checker/Exp 脚本
@@ -178,7 +194,7 @@ reviewer 通过后，Skill 可直接导入公共 Exercise，也可导入培训�
 `exercise import` 是独立的一级导入流程，不要求题目先存在于比赛或培训课程中。Web、Pwn、Reverse、Crypto、Misc、Forensics 等题型都可以直接进入练习题池：
 
 - `StaticAttachment`（例如 Reverse 二进制、流量包、压缩包）提供附件 URL/SHA256 和一个或多个静态 `flags`；Reviewer 验证 `solve.py` 能得到 Flag 后直接收录。
-- `DynamicAttachment` 提供附件和动态 Flag 规则；`StaticContainer`/`DynamicContainer` 提供 Ready 镜像或模板、端口和 Flag/`flagTemplate`。
+- `DynamicAttachment` 提供附件和动态 Flag 规则，并使用批量 `exercise import`；`StaticContainer`/`DynamicContainer` 在镜像 Ready 后逐题使用 `exercise create`，提供镜像或模板、端口和 Flag/`flagTemplate`。
 - 每项必须携带 `category`、`difficulty`、`tags`、题面 `content`、稳定 `externalId` 以及匹配题型的附件/镜像/Flag 字段。Skill 生成题目包时自动填写这些元数据。
 - 直接导入成功后资源来源为 `Exercise`，与比赛/培训/AWDP 深复制到题库的来源收录流程相互独立。
 
@@ -189,9 +205,9 @@ reviewer 通过后，Skill 可直接导入公共 Exercise，也可导入培训�
 1. **环境变量**（推荐）：`GZCTF_HOST` + `GZCTF_TOKEN`
 2. **配置文件**：`~/.gzctf/config.json` — `{"host": "...", "token": "..."}`，权限设为 600
 
-Token 需在平台 "账户 → API Token" 创建。公共练习使用 `exercises:*` + `exercise:*`；培训使用 `training:write` + `training-course:*`；理论题库使用 `theory:write` + `theory-bank:*`；理论试卷使用 `theory:write` + `game:{id}`；战队使用管理员 Token 的 `teams:write` + `team:*`；比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{id}`。异步轮询增加 `operations:read`。每个 Token 对应明确创建者，不得共享。AWDP 导入成功后会自动深复制到题目池。
+Token 需在平台 "账户 → API Token" 创建。附件上传使用 `assets:write`（读取/删除分别为 `assets:read` / `assets:delete`）；公共练习使用 `exercises:read`、`exercises:write` + `exercise:*`；容器镜像归档上传或 Registry 登记额外使用 `images:write`；培训使用 `training:write` + `training-course:*`；理论题库使用 `theory:write` + `theory-bank:*`；理论试卷使用 `theory:write` + `game:{id}`；战队使用管理员 Token 的 `teams:write` + `team:*`；比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{id}`。异步轮询增加 `operations:read`。镜像发布和题目导入应使用各自独立、短期 Token；每个 Token 对应明确创建者，不得共享。AWDP 导入成功后会自动深复制到题目池。
 
-### 练习池自动收录与历史回填
+### 练习池自动收录
 
 新建或更新的比赛、培训和 AWDP 资源只有在可独立运行、可验证 Flag 时才会进入公共练习池：
 
@@ -199,12 +215,7 @@ Token 需在平台 "账户 → API Token" 创建。公共练习使用 `exercises
 - AWDP：必须有 `flagTemplate`，且 `imageName` 必须对应平台中状态为 Ready 的 Docker 镜像模板。
 - 理论题、没有附件/镜像且没有 Flag 的不完整资源会被标记为不符合资格；纯附件题只要有有效附件和 Flag，就可以收录，不要求镜像。
 
-平台升级前的历史资源不会自动批量写入。Teacher+ 用户应在已登录平台会话中执行
-`POST /api/Exercise/pool/backfill`；响应中的 `ineligible` 表示上述前置条件缺失，`failed`
-才表示处理失败。这个维护接口不是 Open API，不能用 `ctf_client.py`、API Token、SSH
-密码或直接数据库写入替代。详细字段与验收步骤见 `prompts/_api.md`。
-
-回填后在 `/practice` 按来源和分类核查题目；对容器题启动实例并确认页面显示访问入口、运行状态
+导入后在 `/practice` 按来源和分类核查题目；对容器题启动实例并确认页面显示访问入口、运行状态
 和剩余时间。没有入口时先检查实例状态、调度日志、节点可达性和端口映射，不要直接改数据库。
 
 ### 导入流程
@@ -216,8 +227,8 @@ Reviewer PASS
       → 方案A（Registry 可达）：docker tag + push + register-reference
       → 方案B（离线）：docker save + upload-archive
       → 轮询镜像 Ready
-      → 生成 exercise-import.json
-      → 调用 POST /api/open/v1/exercises/import
+      → 上传附件（如有）
+      → 容器题调用 POST /api/open/v1/exercises；附件题调用 POST /api/open/v1/exercises/import
       → 轮询 /api/open/v1/operations/{id}
       → 输出 externalId -> exerciseId 映射
   → 无凭据：输出手动操作步骤（v1 行为）
@@ -225,7 +236,7 @@ Reviewer PASS
 
 ### 镜像推送
 
-- **内网可用**：Tag 并推送到 `10.24.0.28:5000/challenges/{name}:{version}`，然后 `register-reference`
+- **Registry 可达**：Tag 并推送到用户确认、且所有调度节点可访问的 `<registry-host:port>/challenges/{name}:{version}`，然后 `register-reference`
 - **离线/外网**：`docker save` 导出 tar，用 `upload-archive` 上传
 
 详细 API 规范见 `prompts/_api.md`。
@@ -252,11 +263,12 @@ python scripts/ctf_client.py team import --file teams.json
 
 ```bash
 # 1. 先检查本地包；容器题还需 Docker build/compose/solve 自测
-bash scripts/validate-package.sh D:/TASK/dynamic-container/web-ssti-easy-v1
+bash scripts/validate-package.sh <user-provided-output-root>/web-ssti-easy-v1
 python scripts/ctf_client.py --help
 
 # 2. 镜像 Ready 后导入。Token 仅通过环境变量或 ~/.gzctf/config.json 提供。
-python scripts/ctf_client.py exercise import --file exercise-import.json
+python scripts/ctf_client.py asset upload --path attachments/source.zip
+python scripts/ctf_client.py exercise create --file exercise-create.json
 python scripts/ctf_client.py operation wait --operation-id <operation-id>
 
 # 3. 在已登录的浏览器会话中打开 /practice，创建实例并确认入口；
@@ -265,7 +277,8 @@ python scripts/ctf_client.py operation wait --operation-id <operation-id>
 
 CLI 在缺少平台地址时会明确报错并给出 `GZCTF_HOST` 示例；地址存在但缺少 Token 时会提示
 创建最小权限 Token。提交比赛题目使用 `challenge import` 或 `challenge import-batch`，
-提交公共练习使用 `exercise import`；两者均要求对应 scope 和资源授权。
+提交公共练习的附件题使用 `exercise import`，容器题使用 `exercise create`；两者均要求对应
+scope 和资源授权。
 
 外部 API 写入全部使用 `Idempotency-Key`，客户端会生成默认值。对于可审计的批量/CI 工作流，
 显式传入稳定 key，并把 operation ID 保存到不含凭据的 `batch-result.json`。

@@ -20,7 +20,7 @@ StaticContainer：所有队伍共享同一个 Docker 容器环境或 Windows VM�
 |------|------|
 | 类型 | `StaticContainer` |
 | 环境 | `Docker` |
-| 镜像 | `10.24.0.28:5000/gzctf/web/demo:20260711` |
+| 镜像 | `<registry-host:port>/gzctf/web/demo:v1`（由本次用户确认） |
 | 内部端口 | `80` |
 | 内存 | `256 MiB` |
 | CPU | `2`（约 0.2 CPU） |

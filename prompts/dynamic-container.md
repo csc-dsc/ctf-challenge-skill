@@ -12,7 +12,7 @@ DynamicContainer：Docker 容器化服务，每个队伍独立实例，Flag 通�
 |------|------|------|
 | 类型 | `DynamicContainer` | |
 | 环境 | `Docker` | |
-| 镜像 | 完整 Registry 地址 | 如 `10.24.0.28:5000/gzctf/web/ssti:20260714-v1` |
+| 镜像 | 本次用户确认、所有调度节点可访问的完整 Registry 地址 | 如 `<registry-host:port>/gzctf/web/ssti:v1` |
 | 内部端口 | `80` | 应用实际监听端口 |
 | Flag 模板 | `flag{[TEAM_HASH]}` | 平台生成，不要手动添加 |
 
@@ -187,6 +187,13 @@ exit 0
 8. 停止: `time docker compose -f docker/docker-compose.test.yml down` — <10秒
 
 全部通过后才交付给 Reviewer。
+
+## 远端实例验收
+
+部署后不能把 operation 成功当成服务可用。Web 题检查 HTTP 健康端点；PWN/原始 TCP 题使用
+`nc <host> <port>` 或题目自带 solver，确认端口、菜单/协议交互和 Flag 获取均正常。若 TCP 已连接
+但终端暂时无首屏，先发送换行或首个协议输入再判断；无 PTY 程序可能在收到输入后刷新输出。验收后
+停止/销毁测试实例，并清理失败导入留下的未引用镜像和附件。
 
 ## 难度设计指南
 

@@ -80,4 +80,6 @@ except socket.timeout:
 3. Flag 会不会意外泄露（报错、源码、元数据）？
 4. 在干净环境中，按 writeup 步骤能走到最后吗？
 
-> **API 自动导入**：reviewer PASS 后使用 `scripts/ctf_client.py exercise import` 导入公共练习；字段映射和错误恢复见 `prompts/_api.md`。
+> **API 自动导入**：reviewer PASS 后，附件题使用 `scripts/ctf_client.py exercise import`，
+> 容器题先上传/登记并等待镜像 Ready，再使用 `exercise create`；字段映射和错误恢复见
+> `prompts/_api.md`。

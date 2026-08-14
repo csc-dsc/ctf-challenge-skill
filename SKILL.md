@@ -24,27 +24,71 @@ ctf-reviewer agent 作为质量门禁，负责规范检查和 Docker 端到端�
   → 你 spawn ctf-reviewer agent（独立验证）
   → review.md 返回结果
   → 如 CRITICAL/HIGH 问题：修复 → 重新 spawn reviewer（最多 3 轮）
-  → 如 PASS：导出镜像、运行 solve.py，并交付文件包（D:\TASK\{type}\{name}\）
+  → 如 PASS：导出镜像、运行 solve.py，并交付到本次用户指定的题目根目录
 ```
 
 > **API 自动导入**：`scripts/ctf_client.py` 支持当前 Open API v1 的公共 Exercise、培训课程、理论题库/试卷、战队、比赛题目和 AWDP 导入及 operation 轮询。仅在 reviewer PASS 后导入；AWDP 成功后会自动收录到题目池。
 
-调用导入前必须先确认用户提供了平台地址（例如 `http://10.24.0.27:8080`）。如果没有地址，
-停止导入并提示用户提供 `GZCTF_HOST`；不要从历史上下文、SSH 主机或题目文件猜测地址。
-地址确认后再检查 Token。AI 可以指导用户在平台的 API Token 页面创建“独立、短期、最小权限”
-Token，但不得代用户生成、索取、回显或保存 Token。用户应通过 `GZCTF_TOKEN` 或
-`~/.gzctf/config.json` 提供它，然后 AI 才能运行 CLI。
+每次导入前必须先要求**本次用户**显式提供平台地址 `GZCTF_HOST`。平台地址不得写死在
+Skill、题目包、脚本默认值或示例中；也不得从历史上下文、SSH 主机、题目文件或其他环境信息
+猜测。用户未提供本次地址时停止导入。地址确认后再检查 Token。AI 可以指导用户在该平台的
+API Token 页面创建“独立、短期、最小权限” Token，但不得代用户生成、索取、回显或保存 Token。
+用户应通过 `GZCTF_TOKEN` 或其本地受控配置提供它，然后 AI 才能运行 CLI。
+
+容器题还必须要求本次用户提供或确认所有调度节点可访问的镜像 Registry 地址。不得假定某个
+内网 Registry 存在、可达或允许推送；Registry 不可达时使用平台的 Docker archive 上传流程。
+
+### 导入前权限声明（强制）
+
+用户提出题目需求后、生成 Token 前，必须先根据目标资源和题型向用户列出本次任务所需的
+最小权限，说明每项权限对应的动作，并明确是一个 Token 还是两个阶段的独立 Token。不得只说
+“需要管理员权限”，不得先索取 Token 再补充权限，也不得使用权限范围大于本次操作所需的 Token。
+
+| 本次目标 | 题型/动作 | 最小 scope | Resource grant | Token 阶段 |
+|---|---|---|---|---|
+| 附件资产 | 任意题目附件 | `assets:write`（读取/删除分别为 `assets:read` / `assets:delete`） | 所有者或 `asset:{sha256}` / `asset:*` | `asset upload` 后使用返回的 `remoteUrl` |
+| 公共练习 | StaticAttachment / DynamicAttachment | `assets:write`, `exercises:read`, `exercises:write`, `operations:read` | `exercise:*` | 先上传附件，再练习导入 |
+| 公共练习 | StaticContainer / DynamicContainer / Web 练习题 | `images:write`, `operations:read` | 无额外资源授权 | 镜像发布 |
+| 公共练习 | StaticContainer / DynamicContainer / Web 练习题 | `exercises:read`, `exercises:write`, `operations:read` | `exercise:*` | 练习导入 |
+| 培训课程 | 课程、章节、实验导入 | `training:write`, `operations:read` | `training-course:*` | 课程导入 |
+| 培训课程容器实验 | 镜像上传/登记 | `images:write`, `operations:read` | 无额外资源授权 | 镜像发布 |
+| 比赛题目 / AWDP | 题目、服务导入 | `challenges:read`, `challenges:write`, `operations:read` | `game:{gameId}` | 比赛导入 |
+| 比赛/AWDP 容器 | 镜像上传/登记 | `images:write`, `operations:read` | 无额外资源授权 | 镜像发布 |
+| 理论题库 | 题库题目导入 | `theory:write`, `operations:read` | `theory-bank:*` | 题库导入 |
+| 理论试卷 | 比赛试卷编排 | `theory:write`, `operations:read` | `game:{gameId}` | 试卷导入 |
+| 战队 | 战队导入 | `teams:write`, `operations:read` | `team:*` | 战队导入 |
+
+删除已有资源时，只额外声明对应的删除 scope：公共练习为 `exercises:delete`，镜像为
+`images:delete`，比赛题目为 `challenges:delete`。读取已有资源时才补充相应 `*:read`，不为
+未执行的操作预先扩大权限。
+
+对“Web 练习题”这类容器题，必须先向用户说明：需要一个镜像发布 Token
+（`images:write`、`operations:read`）和一个练习导入 Token（`exercises:read`、
+`exercises:write`、`operations:read`、`exercise:*`）；两个 Token 可以由同一教师创建，但应
+独立、短期且不共享。仅当用户明确选择使用同一个 Token 且该 Token 精确包含这两阶段权限时，
+才可合并使用。
 
 ### 独立练习题导入
 
-不要把题目池收录理解为必须从比赛或培训复制。对没有来源资源的题目，直接生成 Exercise
+不要把题目池收录理解为必须从比赛或培训复制。对没有来源资源的题目，附件题生成 Exercise
 导入包并调用 `exercise import` 即可进入练习题池。Reverse、Crypto、Forensics 等附件题
-只要有附件、有效静态 `flags` 和通过 Reviewer 的 `solve.py`，同样直接收录；容器题还必须
-提供 Ready 镜像/模板、运行端口和 `flagTemplate`（动态题）或 `flags`（静态题）。
+只要有附件、有效静态 `flags` 和通过 Reviewer 的 `solve.py`，同样直接收录；容器题改用
+`exercise create`，并必须提供 Ready 镜像/模板、运行端口和 `flagTemplate`（动态题）或
+`flags`（静态题）。当前
+`/exercises/import` 只用于附件/无运行时字段的批量导入；容器练习必须在镜像 Ready 后逐题调用
+`exercise create`，并将稳定 `externalId` 保留在题目包和导入结果映射中。
 
 生成每个 Exercise 项时同步填写 `externalId`、`title`、`content`、`category`、
 `difficulty`、`tags`、`type` 及题型所需的 `attachment`/`containerImage`/`imageTemplateId`
 和 Flag 字段。导入成功后记录 Exercise resource ID，不伪造比赛或培训来源。
+
+### 容器题导入闭环
+
+固定顺序：本地 Docker E2E/solver → `asset upload` → 镜像上传并轮询 Ready → `exercise create` →
+operation 和 `exercise get` 回读。回读核对镜像、附件 URL、Flag 模板、端口、题型和
+`creatorUserName`。PWN 等原始 TCP 题必须用 `nc` 或 solver 验收；端口可达但无首屏时发送协议首行后
+再判定，不能仅凭空白终端断言失败。失败清理按练习、镜像、附件逆序执行；被引用附件的 409 是保护，
+不得强删。
 
 ## 题型路由
 
@@ -196,20 +240,14 @@ README.md 必须包含：
 
 ## 输出目录
 
-所有生成的题目统一放在 `D:\TASK\` 下，按题型分类：
+每次任务开始前必须要求用户提供题目输出根目录。不得复用先前任务的目录，也不得假定
+`D:\TASK` 或任何其他路径存在。每道题在该根目录下创建独立目录：
 
 ```
-D:\TASK\
-├── awdp\              # AWDP 题目
-├── dynamic-container\ # 动态容器题
-├── static-container\  # 静态容器题
-├── static-attachment\ # 静态附件题
-├── dynamic-attachment\ # 动态附件题
-├── windows-vm\        # Windows 虚拟机题
-└── theory\            # 理论题
+<user-provided-output-root>\<challenge-name>\
 ```
 
-例如：`D:\TASK\awdp\awdp-pwn-bof-easy-v1\`
+批量任务的每个 `id` 对应一个独立目录；不要把多个题目混放在同一目录。
 
 ## 命名规范
 
@@ -593,7 +631,7 @@ Agent(
 - [ ] 大小在平台限制内
 
 ### Docker（如有）
-- [ ] 镜像使用固定 tag
+- [ ] 本地镜像使用可追溯 tag；平台归档引用由平台生成
 - [ ] 服务监听 0.0.0.0
 - [ ] 内部端口正确
 - [ ] 动态 Flag 读取 GZCTF_FLAG
@@ -636,4 +674,3 @@ Token 安全规则（使用 API 时必须遵守）：
 7. 比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{gameId}`；AWDP 导入成功会自动深复制到题目池
 8. 配置文件权限应设为 600：`chmod 600 ~/.gzctf/config.json`
 9. 仅把可独立运行且可验证 Flag 的资源交给自动收录：比赛/培训题需要容器类型、镜像或模板、Flag 或 `flagTemplate`；AWDP 还需要匹配的 Ready Docker 模板和非空 `flagTemplate`
-10. 历史题目池回填只能由已登录的 Teacher+ 平台会话调用内部 `POST /api/Exercise/pool/backfill`；不得将其加入 Token CLI、不得使用 SSH 密码或直接写数据库绕过授权

@@ -10,9 +10,15 @@ Token 由管理员/教师在 API Token 页面创建，明文只显示一次。�
 操作者创建独立 Token。平台记录 token ID、创建者用户 ID、资源、路由、operation、
 trace 和 IP 摘要，可明确追责上传者。
 
+在接受 Token 或发送任何请求前，Skill 必须先向用户声明本次导入所需的最小 scope、resource
+grant 和阶段。容器题必须单列镜像发布阶段；没有新镜像、只引用已 Ready 且已授权模板时才不需要
+`images:write`。不得用一个宽泛管理员 Token 代替该声明。
+
 | 目标 | Scope | Resource grant | 最低角色 |
 |---|---|---|---|
 | 公共练习 | `exercises:read/write` | `exercise:*` | Teacher |
+| 附件资产 | `assets:write`（读取/删除分别为 `assets:read` / `assets:delete`） | 所有者或 `asset:{sha256}` / `asset:*` | Teacher |
+| Docker 镜像归档/引用 | `images:write` | 无额外资源授权 | Teacher |
 | 培训课程 | `training:write` | `training-course:*` | Teacher |
 | 理论题库 | `theory:write` | `theory-bank:*` | Teacher |
 | 比赛理论试卷 | `theory:write` | `game:{gameId}` | Teacher/比赛管理者 |
@@ -22,11 +28,20 @@ trace 和 IP 摘要，可明确追责上传者。
 轮询还需要 `operations:read`；删除练习才增加 `exercises:delete`。Token 创建者角色被
 降低、禁用或 Token 被撤销后，权限立即失效。
 
+容器题分两阶段最小授权：先使用镜像发布 Token（`images:write`、`operations:read`）上传
+archive 或登记用户提供的 Registry 引用并等待镜像 Ready；再使用练习导入 Token
+（附件为 `assets:write`；练习为 `exercises:read`、`exercises:write`、`operations:read`、`exercise:*`）导入题目。可以由
+同一位教师创建两个短期 Token，但不得以缺少 `images:write` 的练习 Token 上传镜像，也不得
+把任一 Token 写入题目文件、命令行、日志或导入结果。
+
 ## 路由与幂等
 
 ```text
 GET    /exercises
 GET    /exercises/{exerciseId}
+POST   /assets
+GET    /assets/{hash}
+DELETE /assets/{hash}
 POST   /exercises
 POST   /exercises/import
 PUT    /exercises/{exerciseId}
@@ -44,11 +59,6 @@ POST   /games/{gameId}/awdp-services/batch-delete
 GET    /operations/{operationId}
 ```
 
-`/api/Exercise/pool/backfill` is deliberately not an Open API route. It is an
-administrator/teacher browser-session maintenance action for historical data;
-do not call it with an API Token, and never replace it with direct database
-writes. See **Exercise pool collection** below.
-
 所有写请求都必须带唯一、稳定的 `Idempotency-Key`（ASCII，1-128 字符）。响应为
 `202 Accepted` 和 operation；轮询到 `Succeeded` 或 `Failed`。相同 token、路由、
 key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idempotency_conflict`。
@@ -58,10 +68,11 @@ key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idem
 
 公共 Exercise 支持独立直接导入，不要求先创建比赛或培训资源。Reverse 等附件题进入题目池
 的标准方式就是 `exercise import`：静态附件带 `attachment` 与 `flags`，动态附件带附件与
-动态 Flag 规则，容器题带 Ready 镜像/模板及运行配置。所有题型都必须同时提供
+动态 Flag 规则。当前运行中的 `/exercises/import` 契约不包含容器运行字段；容器题必须先将
+镜像上传/登记并等待 Ready，再逐题调用 `exercise create`。所有题型都必须同时提供
 `category`、`difficulty`、`tags`、题面和稳定 `externalId`；这些字段由 Skill 自动填充。
 
-`POST /exercises/import`：
+`POST /exercises/import`（附件/无运行时字段的批量导入）：
 
 ```json
 {"items":[{
@@ -69,26 +80,22 @@ key 和请求体复用 operation；相同 key 但请求体不同返回 `409 idem
   "title":"SSTI 入门",
   "content":"Markdown 题面",
   "category":"Web",
-  "type":"DynamicContainer",
+  "type":"StaticAttachment",
   "difficulty":"Normal",
   "isEnabled":true,
   "tags":["web"],
-  "containerImage":"registry.example/labs/ssti:v1",
-  "memoryLimit":256,
-  "storageLimit":512,
-  "cpuCount":1,
-  "exposePort":8080,
-  "networkMode":"Isolated",
-  "environment":"Docker",
-  "flagTemplate":"flag{web_[TEAM_HASH]}",
-  "flags":[],
+  "flags":[{"flag":"flag{attachment_example}","orderIndex":0}],
   "attachment":{"remoteUrl":"https://assets.example/ssti.zip"}
 }]}
 ```
 
-批量 1-100 题。静态附件题提供 `flags`；动态附件/动态容器提供 `flagTemplate`。附件只支持绝对
-HTTP/HTTPS URL，不支持 multipart。创建单题使用相同字段但无 `externalId`；PUT 是
-全量替换。
+批量 1-100 题。静态附件题提供 `flags`；动态附件提供 `flagTemplate`。附件只支持绝对
+HTTP/HTTPS URL；`exercise import` 本身不接收 multipart，附件必须先通过 `/assets` 上传。
+
+`POST /exercises`（容器练习单题创建）使用 `ExerciseCreateModel`，不含 `externalId`，但可以
+传入 `containerImage` 或 `imageTemplateId`、资源限制、端口、网络和 `flagTemplate`。为每个
+容器题使用稳定、唯一的 Idempotency-Key，并将题目包中的 `externalId` 与 operation 返回的
+`exerciseId` 写入不含凭据的 `batch-result.json`。
 
 直接导入成功即创建 Exercise 题目池资源，来源标记为 `Exercise`；它与比赛、培训和 AWDP
 资源满足运行资格后自动深复制到题库的来源收录流程相互独立。
@@ -108,22 +115,6 @@ creating a source resource intended for the pool, satisfy these prerequisites:
 
 Collection never reuses a live competition instance. It deep-copies the source
 definition and preserves provenance (`Game`, `Training`, or AWDP source ID).
-
-### Historical backfill
-
-After deploying collection to an existing platform, historical records remain
-unchanged until a Teacher+ user invokes:
-
-```text
-POST /api/Exercise/pool/backfill
-```
-
-Use the already authenticated platform browser session. The JSON response has
-`gameCollected`, `trainingCollected`, `awdpCollected`, `ineligible`, and
-`failed`. Treat `ineligible` as a source-data prerequisite failure, not an
-import error. Correct the source image/template/Flag configuration, then invoke
-the same authorized maintenance action again. Do not expose this endpoint in
-`ctf_client.py` and do not use SSH credentials as platform credentials.
 
 ## 培训课程
 
@@ -231,3 +222,13 @@ python scripts/ctf_client.py awdp import-batch --game-id 42 --file awdp-services
 不足，`404` 表示资源不可见，`409` 表示幂等或状态冲突，`422` 表示业务校验失败，
 `429` 表示配额限制，`503` 表示依赖不可用。错误体为 `application/problem+json`，
 按稳定 `code` 分支。
+### 容器题实际导入顺序
+
+1. 完成本地 Docker Compose 健康检查、非 root 检查和题目专用 solver 验收。
+2. 使用 `asset upload` 上传附件，保存返回的 `remoteUrl`、Hash 和 `creatorUserName`。
+3. 使用 `image upload-archive` 或 Registry 引用登记镜像，并轮询 operation 直到镜像 `Ready`。
+4. 使用 `exercise create` 提交包含 `containerImage`、端口、`flagTemplate` 和附件 URL 的单题 JSON。
+5. 轮询练习 operation，再用 `exercise get` 回读题目、镜像、附件和创建者。
+6. 失败时按练习、镜像、附件逆序清理；已引用附件删除返回 409 时不得强删。
+
+附件上传是 Token Open API，不依赖浏览器会话。平台审计记录 Token、账户、路由和时间。

@@ -3,10 +3,13 @@
 
 Usage:
   ctf_client.py image register-reference --name NAME --registry-url URL [--os-type Linux|Windows]
-  ctf_client.py image upload-archive --path TAR --name NAME --repository REPO --tag TAG
+  ctf_client.py image upload-archive --path TAR --name NAME [--source-image IMAGE]
   ctf_client.py image status --image-id ID
   ctf_client.py image wait-ready --image-id ID [--max-wait SECONDS]
   ctf_client.py image delete --image-id ID
+  ctf_client.py asset upload --path FILE [--filename NAME]
+  ctf_client.py asset get --hash SHA256
+  ctf_client.py asset delete --hash SHA256
 
   ctf_client.py challenge import --game-id ID --file JSON_FILE
   ctf_client.py challenge import-batch --game-id ID --file JSON_FILE
@@ -143,8 +146,8 @@ class PlatformClient:
     def __init__(self, host, token, timeout=30):
         if not host:
             raise PlatformError(
-                "Platform address is required: set GZCTF_HOST or pass --host "
-                "(for example, http://10.24.0.27:8080)"
+                "Platform address is required for this invocation: set GZCTF_HOST "
+                "or pass --host. Do not infer or reuse a historical platform address."
             )
         if not token:
             raise PlatformError(
@@ -304,9 +307,9 @@ class PlatformClient:
 
     def register_docker_reference(self, name, registry_url, os_type="Linux",
                                   expected_digest=None):
-        """POST /images/docker-references — register a registry reference.
+        """POST /images/docker-references — register a user-provided registry reference.
 
-        Only 10.24.0.28:5000 or public registries are allowed by the platform.
+        The Registry must be reachable from every selected platform runtime node.
         Returns: {id, name, registryUrl, osType, status, ...}
         """
         body = {
@@ -326,8 +329,7 @@ class PlatformClient:
         print(f"Image reference registered: {result.get('result', {}).get('id', 'OK')}")
         return result
 
-    def upload_docker_archive(self, path, name, repository, tag,
-                              source_image=None, expected_digest=None):
+    def upload_docker_archive(self, path, name, source_image=None, expected_digest=None):
         """POST /images/docker-archives — upload docker archive tar.
 
         Uses multipart/form-data to upload the tar file.
@@ -360,14 +362,13 @@ class PlatformClient:
             parts.append(data)
 
         add_field("name", name)
-        add_field("repository", repository)
-        add_field("tag", tag)
+        # The platform derives its managed repository/tag from the archive job.
         if source_image:
             add_field("sourceImage", source_image)
         if expected_digest:
             add_field("expectedDigest", expected_digest)
-        add_file_field("archive", tar_path.name,
-                       tar_path.read_bytes(), "application/gzip")
+        add_file_field("file", tar_path.name,
+                       tar_path.read_bytes(), "application/x-tar")
         parts.append(f"--{boundary}--".encode("utf-8"))
         body = b"\r\n".join(p for p in parts)
 
@@ -380,12 +381,38 @@ class PlatformClient:
         op_id = result.get("id")
         if op_id:
             result = self._poll_operation(op_id, max_wait=600)
-        print(f"Image archive uploaded: {result.get('result', {}).get('id', 'OK')}")
+        image_result = result.get("result") or {}
+        print(f"Image archive uploaded: {image_result.get('id', 'OK')}")
         return result
 
     def get_image_status(self, image_template_id):
         """GET /images/{imageTemplateId} — query image template."""
         return self._request("GET", f"/images/{image_template_id}")
+
+    def upload_asset(self, path, filename=None):
+        """POST /assets — upload an attachment with the token only."""
+        asset_path = Path(path)
+        if not asset_path.is_file():
+            raise PlatformError(f"Asset not found: {path}")
+        boundary = f"----GzctfAsset{random.getrandbits(64):016x}"
+        name = filename or asset_path.name
+        body = b"\r\n".join([
+            f"--{boundary}".encode(),
+            f'Content-Disposition: form-data; name="file"; filename="{asset_path.name}"'.encode(),
+            b"Content-Type: application/octet-stream", b"",
+            asset_path.read_bytes(),
+            f"--{boundary}".encode(),
+            b'Content-Disposition: form-data; name="filename"', b"", name.encode(),
+            f"--{boundary}--".encode(),
+        ])
+        return self._request("POST", "/assets", data=body,
+                             content_type=f"multipart/form-data; boundary={boundary}")
+
+    def get_asset(self, file_hash):
+        return self._request("GET", f"/assets/{file_hash}")
+
+    def delete_asset(self, file_hash):
+        return self._request("DELETE", f"/assets/{file_hash}")
 
     # Image status enum (doc: 0=Ready, 1=Importing, 2=Error, 3=Deleting)
     IMAGE_STATUS_READY = 0
@@ -564,6 +591,16 @@ class PlatformClient:
         return self._poll_operation(operation_id) if operation_id else result
 
     def import_exercises(self, items, idempotency_key=None):
+        runtime_fields = {
+            "containerImage", "imageTemplateId", "memoryLimit", "storageLimit",
+            "cpuCount", "exposePort", "networkMode", "environment", "flagTemplate"
+        }
+        if any(any(item.get(field) is not None for field in runtime_fields)
+               for item in items):
+            raise PlatformValidationError(
+                "The current /exercises/import contract does not accept container runtime "
+                "fields. Use exercise create once per container exercise after the image "
+                "is Ready.")
         body = {"items": items}
         return self._submit_operation("POST", "/exercises/import", body,
                                       "exercise-import", idempotency_key)
@@ -644,8 +681,6 @@ def _make_parser():
     iua = img_sub.add_parser("upload-archive", help="Upload a Docker archive tar")
     iua.add_argument("--path", required=True, help="Path to .tar file")
     iua.add_argument("--name", required=True)
-    iua.add_argument("--repository", required=True)
-    iua.add_argument("--tag", required=True)
     iua.add_argument("--source-image", default=None)
     iua.add_argument("--expected-digest", default=None,
                      help="SHA-256 digest of the archive file (hex)")
@@ -659,6 +694,17 @@ def _make_parser():
 
     idl = img_sub.add_parser("delete", help="Delete unused image template")
     idl.add_argument("--image-id", required=True, type=int)
+
+    asset = sub.add_parser("asset", help="Attachment asset management")
+    asset_sub = asset.add_subparsers(dest="subcommand")
+    asset_sub.required = True
+    aup = asset_sub.add_parser("upload", help="Upload an attachment")
+    aup.add_argument("--path", required=True)
+    aup.add_argument("--filename", default=None)
+    agt = asset_sub.add_parser("get", help="Read attachment metadata")
+    agt.add_argument("--hash", required=True)
+    adl = asset_sub.add_parser("delete", help="Delete an unreferenced attachment")
+    adl.add_argument("--hash", required=True)
 
     # --- challenge ---
     ch = sub.add_parser("challenge", help="Challenge management")
@@ -824,8 +870,7 @@ def main():
                 print_result(r)
             elif args.subcommand == "upload-archive":
                 r = client.upload_docker_archive(
-                    args.path, args.name, args.repository, args.tag,
-                    args.source_image, args.expected_digest)
+                    args.path, args.name, args.source_image, args.expected_digest)
                 print_result(r)
             elif args.subcommand == "status":
                 r = client.get_image_status(args.image_id)
@@ -836,6 +881,14 @@ def main():
             elif args.subcommand == "delete":
                 r = client.delete_image(args.image_id)
                 print_result(r)
+
+        elif args.command == "asset":
+            if args.subcommand == "upload":
+                print_result(client.upload_asset(args.path, args.filename))
+            elif args.subcommand == "get":
+                print_result(client.get_asset(args.hash))
+            elif args.subcommand == "delete":
+                print_result(client.delete_asset(args.hash))
 
         # --- challenge commands ---
         elif args.command == "challenge":
