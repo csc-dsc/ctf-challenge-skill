@@ -46,7 +46,7 @@ API Token 页面创建“独立、短期、最小权限” Token，但不得代�
 
 | 本次目标 | 题型/动作 | 最小 scope | Resource grant | Token 阶段 |
 |---|---|---|---|---|
-| 附件资产 | 任意题目附件 | `assets:write`（读取/删除分别为 `assets:read` / `assets:delete`） | 所有者或 `asset:{sha256}` / `asset:*` | `asset upload` 后使用返回的 `remoteUrl` |
+| 附件资产 | 任意题目附件 | `assets:write`（读取/删除分别为 `assets:read` / `assets:delete`） | Token scope；删除被引用附件返回 409 | `asset upload` 后将返回的 `hash` 写入 `attachment.fileHash` |
 | 公共练习 | StaticAttachment / DynamicAttachment | `assets:write`, `exercises:read`, `exercises:write`, `operations:read` | `exercise:*` | 先上传附件，再练习导入 |
 | 公共练习 | StaticContainer / DynamicContainer / Web 练习题 | `images:write`, `operations:read` | 无额外资源授权 | 镜像发布 |
 | 公共练习 | StaticContainer / DynamicContainer / Web 练习题 | `exercises:read`, `exercises:write`, `operations:read` | `exercise:*` | 练习导入 |

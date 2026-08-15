@@ -284,6 +284,8 @@ python scripts/ctf_client.py --help
 
 # 2. 镜像 Ready 后导入。Token 仅通过环境变量或 ~/.gzctf/config.json 提供。
 python scripts/ctf_client.py asset upload --path attachments/source.zip
+# Copy the returned hash into the exercise request:
+# "attachment": { "fileHash": "<64-char-sha256>" }
 python scripts/ctf_client.py exercise create --file exercise-create.json
 python scripts/ctf_client.py operation wait --operation-id <operation-id>
 
@@ -293,8 +295,9 @@ python scripts/ctf_client.py operation wait --operation-id <operation-id>
 
 CLI 在缺少平台地址时会明确报错并给出 `GZCTF_HOST` 示例；地址存在但缺少 Token 时会提示
 创建最小权限 Token。提交比赛题目使用 `challenge import` 或 `challenge import-batch`，
-提交公共练习的附件题使用 `exercise import`，容器题使用 `exercise create`；两者均要求对应
-scope 和资源授权。
+附件命令调用 `POST /api/open/v1/assets`，返回 `hash`、`name`、`size` 与 `remoteUrl`。题目请求应优先
+使用 `attachment.fileHash` 绑定该 Hash；`attachment.remoteUrl` 仅用于已有的外部链接。提交公共练习的
+附件题使用 `exercise import`，容器题使用 `exercise create`；两者均要求对应 scope 和资源授权。
 
 外部 API 写入全部使用 `Idempotency-Key`，客户端会生成默认值。对于可审计的批量/CI 工作流，
 显式传入稳定 key，并把 operation ID 保存到不含凭据的 `batch-result.json`。
