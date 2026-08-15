@@ -36,15 +36,18 @@ bash install.sh        # Linux/Mac
 # install.bat          # Windows
 ```
 
-安装后**重启 Claude Code**（退出终端重新打开），Skill 即生效。
+安装后**重启 Claude Code**（退出终端重新打开），并为 Codex 新开一个会话，Skill 即生效。
 
-验证安装：在 Claude Code 中输入 `/ctf-challenge-creator`，如果显示 Skill 加载成功即可。
+验证安装：在 Claude Code 中输入 `/ctf-challenge-creator`；Codex 中提出一条 CTF 出题请求并显式
+提及 `ctf-challenge-creator`。两者都应先要求本次 `GZCTF_HOST` 和最小权限 Token，而不是复用
+历史平台地址或凭据。
 
 ### 其他代理适配
 
 Skill 的规范入口是 `SKILL.md`，因此不依赖 Claude 专有 API。Claude Code 使用安装脚本后可通过
-`/ctf-challenge-creator` 调用；Codex 可从 `.agents/skills/ctf-challenge-creator/SKILL.md`
-或仓库根目录的 `SKILL.md` 加载，并按其中引用读取 `prompts/`、`spec/`、`templates/` 和
+`/ctf-challenge-creator` 调用；Codex 使用安装脚本同步到
+`$CODEX_HOME/skills/ctf-challenge-creator/`（默认 `~/.codex/skills/ctf-challenge-creator/`），
+并按其中引用读取 `prompts/`、`spec/`、`templates/` 和
 `scripts/`。其他支持 Markdown 指令/工具技能的代理也可将 `SKILL.md` 作为系统提示或项目技能
 入口，保持同样的文件相对路径。只有 Claude Code 会自动注册 `agents/ctf-reviewer.md`；其他代理
 应将该文件内容作为独立 reviewer 子代理提示，或手动执行等价审查。所有代理都必须在导入前由
@@ -206,6 +209,19 @@ reviewer 通过后，Skill 可直接导入公共 Exercise，也可导入培训�
 2. **配置文件**：`~/.gzctf/config.json` — `{"host": "...", "token": "..."}`，权限设为 600
 
 Token 需在平台 "账户 → API Token" 创建。附件上传使用 `assets:write`（读取/删除分别为 `assets:read` / `assets:delete`）；公共练习使用 `exercises:read`、`exercises:write` + `exercise:*`；容器镜像归档上传或 Registry 登记额外使用 `images:write`；培训使用 `training:write` + `training-course:*`；理论题库使用 `theory:write` + `theory-bank:*`；理论试卷使用 `theory:write` + `game:{id}`；战队使用管理员 Token 的 `teams:write` + `team:*`；比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{id}`。异步轮询增加 `operations:read`。镜像发布和题目导入应使用各自独立、短期 Token；每个 Token 对应明确创建者，不得共享。AWDP 导入成功后会自动深复制到题目池。
+
+### 上传者可视化核验
+
+平台把公共练习的创建者和镜像模板的上传者绑定到执行写请求的 Token 所属账户；客户端不能在
+JSON 中指定或覆盖该账户名。每次导入成功后，Teacher/Admin 应执行以下核验：
+
+1. 在 `/admin/exercises` 查找题目。列表“提交”和“操作”之间的“出题人”必须等于本次 Token
+   所属账户；编辑抽屉的“题目内容”上方也必须显示相同账户。
+2. 在 `/admin/images` 查找对应模板。“登记时间”后的“上传者”必须等于发布镜像 Token 的账户。
+3. 对附件保留 `asset upload` 返回的 Hash 与 operation ID，以便管理员通过审计记录定位上传账户。
+
+历史题或历史镜像可能显示“未记录”。需要补录时由管理员先按来源、分类和 ID 做只读核对，再用
+最小范围的后台维护操作修正；自动化导入不得重写既有资源的归属。
 
 ### 练习池自动收录
 

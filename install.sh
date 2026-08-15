@@ -9,6 +9,7 @@ SKILL_NAME="ctf-challenge-creator"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="${HOME}/.claude"
 AGENTS_DIR="${HOME}/.agents"
+CODEX_DIR="${CODEX_HOME:-${HOME}/.codex}"
 
 echo ""
 echo "╔══════════════════════════════════════════╗"
@@ -38,6 +39,7 @@ echo "[3/6] Creating directories..."
 mkdir -p "${CLAUDE_DIR}/skills"
 mkdir -p "${CLAUDE_DIR}/agents"
 mkdir -p "${AGENTS_DIR}/skills/${SKILL_NAME}"
+mkdir -p "${CODEX_DIR}/skills/${SKILL_NAME}"
 echo "  Directories ready"
 
 # === Step 4: Install skill files ===
@@ -63,6 +65,8 @@ fi
 if [ -d "${REPO_DIR}/scripts" ]; then
     cp -r "${REPO_DIR}/scripts" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
 fi
+
+cp -r "${AGENTS_DIR}/skills/${SKILL_NAME}/." "${CODEX_DIR}/skills/${SKILL_NAME}/"
 
 # Create symlink in user skills
 if [ -L "${CLAUDE_DIR}/skills/${SKILL_NAME}" ]; then
@@ -110,6 +114,13 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
+if [ -f "${CODEX_DIR}/skills/${SKILL_NAME}/SKILL.md" ]; then
+    echo "  Codex SKILL.md: OK"
+else
+    echo "  Codex SKILL.md: MISSING"
+    ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 if [ $ERRORS -eq 0 ]; then
     echo "╔═══════════════════════════════╗"
@@ -118,6 +129,7 @@ if [ $ERRORS -eq 0 ]; then
     echo ""
     echo "Installed components:"
     echo "  Skill:   ctf-challenge-creator (via /ctf-challenge-creator)"
+    echo "  Codex:   ${CODEX_DIR}/skills/${SKILL_NAME}/"
     echo "  Agent:   ctf-reviewer"
     echo "  Templates: ${AGENTS_DIR}/skills/${SKILL_NAME}/templates/"
     echo ""

@@ -11,6 +11,7 @@ set "SKILL_NAME=ctf-challenge-creator"
 set "REPO_DIR=%~dp0"
 set "CLAUDE_DIR=%USERPROFILE%\.claude"
 set "AGENTS_DIR=%USERPROFILE%\.agents"
+set "CODEX_DIR=%USERPROFILE%\.codex"
 
 :: Step 1: Check Docker
 echo [1/6] Checking Docker...
@@ -36,6 +37,7 @@ echo [3/6] Creating directories...
 if not exist "%CLAUDE_DIR%\skills" mkdir "%CLAUDE_DIR%\skills"
 if not exist "%CLAUDE_DIR%\agents" mkdir "%CLAUDE_DIR%\agents"
 if not exist "%AGENTS_DIR%\skills\%SKILL_NAME%" mkdir "%AGENTS_DIR%\skills\%SKILL_NAME%"
+if not exist "%CODEX_DIR%\skills\%SKILL_NAME%" mkdir "%CODEX_DIR%\skills\%SKILL_NAME%"
 echo   Directories ready
 
 :: Step 4: Install skill files
@@ -55,10 +57,12 @@ if exist "%REPO_DIR%scripts" (
     xcopy /E /I /Y "%REPO_DIR%scripts" "%AGENTS_DIR%\skills\%SKILL_NAME%\scripts" >nul
 )
 
+xcopy /E /I /Y "%AGENTS_DIR%\skills\%SKILL_NAME%\" "%CODEX_DIR%\skills\%SKILL_NAME%\" >nul
+
 :: Create symlink (requires admin on Windows, fallback to copy)
 mklink /D "%CLAUDE_DIR%\skills\%SKILL_NAME%" "%AGENTS_DIR%\skills\%SKILL_NAME%" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo   Symlink failed (admin may be needed), copying instead...
+    echo   Symlink failed ^(admin may be needed^), copying instead...
     xcopy /E /I /Y "%AGENTS_DIR%\skills\%SKILL_NAME%" "%CLAUDE_DIR%\skills\%SKILL_NAME%" >nul
 )
 
@@ -90,22 +94,34 @@ if exist "%CLAUDE_DIR%\agents\ctf-reviewer.md" (
     set /a ERRORS+=1
 )
 
-echo.
-if !ERRORS! equ 0 (
-    echo ========================================
-    echo   Installation Successful!
-    echo ========================================
-    echo.
-    echo Installed components:
-    echo   Skill:   ctf-challenge-creator
-    echo   Agent:   ctf-reviewer
-    echo   Templates: %AGENTS_DIR%\skills\%SKILL_NAME%\templates\
-    echo.
-    echo Usage: Just say 'Create a Web SSTI Easy challenge' to start!
+if exist "%CODEX_DIR%\skills\%SKILL_NAME%\SKILL.md" (
+    echo   Codex SKILL.md: OK
 ) else (
-    echo Installation completed with !ERRORS! error(s).
-    pause
-    exit /b 1
+    echo   Codex SKILL.md: MISSING
+    set /a ERRORS+=1
 )
+
+echo.
+if not "!ERRORS!"=="0" goto :install_failed
+
+echo ========================================
+echo   Installation Successful
+echo ========================================
+echo.
+echo Installed components:
+echo   Skill:   ctf-challenge-creator
+echo   Codex:   %CODEX_DIR%\skills\%SKILL_NAME%\
+echo   Agent:   ctf-reviewer
+echo   Templates: %AGENTS_DIR%\skills\%SKILL_NAME%\templates\
+echo.
+echo Usage: Just say 'Create a Web SSTI Easy challenge' to start
+goto :install_done
+
+:install_failed
+echo Installation completed with !ERRORS! error(s).
+pause
+exit /b 1
+
+:install_done
 
 endlocal

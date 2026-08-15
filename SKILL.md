@@ -86,7 +86,11 @@ API Token 页面创建“独立、短期、最小权限” Token，但不得代�
 
 固定顺序：本地 Docker E2E/solver → `asset upload` → 镜像上传并轮询 Ready → `exercise create` →
 operation 和 `exercise get` 回读。回读核对镜像、附件 URL、Flag 模板、端口、题型和
-`creatorUserName`。PWN 等原始 TCP 题必须用 `nc` 或 solver 验收；端口可达但无首屏时发送协议首行后
+`creatorUserName`。导入完成后，使用 Teacher/Admin 会话在 `/admin/exercises` 核对题目列表
+“提交”和“操作”之间的“出题人”列，并在编辑抽屉的“题目内容”上方核对同一账户名；镜像在
+`/admin/images` 的“登记时间”后核对“上传者”。账户名必须是本次 Token 所属操作者，不能由
+CLI 请求体伪造。历史资源可能显示“未记录”，只能由平台管理员按明确范围补录，不能在导入脚本
+中批量改写。PWN 等原始 TCP 题必须用 `nc` 或 solver 验收；端口可达但无首屏时发送协议首行后
 再判定，不能仅凭空白终端断言失败。失败清理按练习、镜像、附件逆序执行；被引用附件的 409 是保护，
 不得强删。
 
@@ -668,7 +672,8 @@ Token 安全规则（使用 API 时必须遵守）：
 1. Token **只能**通过环境变量 `GZCTF_TOKEN` 或 `~/.gzctf/config.json` 传入
 2. **绝对禁止**将 Token 写入：Git 仓库、skill 文件、日志、`import-result.json`、shell 历史
 3. 所有含 Token 的命令必须通过环境变量传递，禁止在命令行中明文写出 Token
-4. 每个 AI、CI 或操作者使用独立 Token；平台审计通过 token ID 和创建者用户 ID 追溯上传责任
+4. 每个 AI、CI 或操作者使用独立 Token；平台审计通过 token ID 和创建者用户 ID 追溯上传责任，
+   并在练习“出题人”和镜像“上传者”管理列中可视化核对
 5. Exercise Token 至少需要 `exercises:write`、`exercises:read`、`operations:read`，资源授权为 `exercise:*`
 6. 培训/理论使用 `training:write`/`theory:write`；战队使用仅管理员可签发的 `teams:write`
 7. 比赛和 AWDP 使用 `challenges:read/write/delete` + `game:{gameId}`；AWDP 导入成功会自动深复制到题目池
