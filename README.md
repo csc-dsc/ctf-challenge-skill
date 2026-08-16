@@ -37,6 +37,8 @@ bash install.sh        # Linux/Mac
 ```
 
 安装后**重启 Claude Code**（退出终端重新打开），并为 Codex 新开一个会话，Skill 即生效。
+安装器以当前克隆仓库作为唯一技能源，分别在 `.codex/skills` 和 `.claude/skills` 创建链接；
+不会再向 `.agents/skills` 复制第三份技能。以后执行 `git pull` 即可让两个工具同时使用最新版。
 
 验证安装：在 Claude Code 中输入 `/ctf-challenge-creator`；Codex 中提出一条 CTF 出题请求并显式
 提及 `ctf-challenge-creator`。两者都应先要求本次 `GZCTF_HOST` 和最小权限 Token，而不是复用
@@ -46,7 +48,7 @@ bash install.sh        # Linux/Mac
 
 Skill 的规范入口是 `SKILL.md`，因此不依赖 Claude 专有 API。Claude Code 使用安装脚本后可通过
 `/ctf-challenge-creator` 调用；Codex 使用安装脚本同步到
-`$CODEX_HOME/skills/ctf-challenge-creator/`（默认 `~/.codex/skills/ctf-challenge-creator/`），
+`$CODEX_HOME/skills/ctf-challenge-creator/`（默认 `~/.codex/skills/ctf-challenge-creator/`）链接到当前仓库，
 并按其中引用读取 `prompts/`、`spec/`、`templates/` 和
 `scripts/`。其他支持 Markdown 指令/工具技能的代理也可将 `SKILL.md` 作为系统提示或项目技能
 入口，保持同样的文件相对路径。只有 Claude Code 会自动注册 `agents/ctf-reviewer.md`；其他代理

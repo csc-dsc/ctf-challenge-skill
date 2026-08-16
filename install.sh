@@ -8,7 +8,6 @@ set -euo pipefail
 SKILL_NAME="ctf-challenge-creator"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="${HOME}/.claude"
-AGENTS_DIR="${HOME}/.agents"
 CODEX_DIR="${CODEX_HOME:-${HOME}/.codex}"
 
 echo ""
@@ -38,43 +37,16 @@ fi
 echo "[3/6] Creating directories..."
 mkdir -p "${CLAUDE_DIR}/skills"
 mkdir -p "${CLAUDE_DIR}/agents"
-mkdir -p "${AGENTS_DIR}/skills/${SKILL_NAME}"
-mkdir -p "${CODEX_DIR}/skills/${SKILL_NAME}"
+mkdir -p "${CODEX_DIR}/skills"
 echo "  Directories ready"
 
 # === Step 4: Install skill files ===
-echo "[4/6] Installing skill files..."
-cp "${REPO_DIR}/SKILL.md" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
-
-# Copy prompts
-if [ -d "${REPO_DIR}/prompts" ]; then
-    cp -r "${REPO_DIR}/prompts" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
-fi
-
-# Copy templates
-if [ -d "${REPO_DIR}/templates" ]; then
-    cp -r "${REPO_DIR}/templates" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
-fi
-
-# Copy spec
-if [ -d "${REPO_DIR}/spec" ]; then
-    cp -r "${REPO_DIR}/spec" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
-fi
-
-# Copy scripts (ctf_client.py)
-if [ -d "${REPO_DIR}/scripts" ]; then
-    cp -r "${REPO_DIR}/scripts" "${AGENTS_DIR}/skills/${SKILL_NAME}/"
-fi
-
-cp -r "${AGENTS_DIR}/skills/${SKILL_NAME}/." "${CODEX_DIR}/skills/${SKILL_NAME}/"
-
-# Create symlink in user skills
-if [ -L "${CLAUDE_DIR}/skills/${SKILL_NAME}" ]; then
-    rm "${CLAUDE_DIR}/skills/${SKILL_NAME}"
-elif [ -d "${CLAUDE_DIR}/skills/${SKILL_NAME}" ]; then
-    rm -rf "${CLAUDE_DIR}/skills/${SKILL_NAME}"
-fi
-ln -s "${AGENTS_DIR}/skills/${SKILL_NAME}" "${CLAUDE_DIR}/skills/${SKILL_NAME}"
+echo "[4/6] Installing skill links..."
+rm -rf "${HOME}/.agents/skills/${SKILL_NAME}"
+rm -rf "${CODEX_DIR}/skills/${SKILL_NAME}"
+rm -rf "${CLAUDE_DIR}/skills/${SKILL_NAME}"
+ln -s "${REPO_DIR}" "${CODEX_DIR}/skills/${SKILL_NAME}"
+ln -s "${REPO_DIR}" "${CLAUDE_DIR}/skills/${SKILL_NAME}"
 
 echo "  Skill files installed"
 
@@ -93,17 +65,10 @@ echo "  Agent definitions installed"
 echo "[6/6] Verifying installation..."
 ERRORS=0
 
-if [ -f "${AGENTS_DIR}/skills/${SKILL_NAME}/SKILL.md" ]; then
-    echo "  SKILL.md: OK"
+if [ -L "${CLAUDE_DIR}/skills/${SKILL_NAME}" ] && [ -L "${CODEX_DIR}/skills/${SKILL_NAME}" ]; then
+    echo "  Skill symlinks: OK"
 else
-    echo "  SKILL.md: MISSING"
-    ERRORS=$((ERRORS + 1))
-fi
-
-if [ -L "${CLAUDE_DIR}/skills/${SKILL_NAME}" ]; then
-    echo "  Skills symlink: OK"
-else
-    echo "  Skills symlink: MISSING"
+    echo "  Skill symlinks: MISSING"
     ERRORS=$((ERRORS + 1))
 fi
 
@@ -128,15 +93,16 @@ if [ $ERRORS -eq 0 ]; then
     echo "╚═══════════════════════════════╝"
     echo ""
     echo "Installed components:"
-    echo "  Skill:   ctf-challenge-creator (via /ctf-challenge-creator)"
-    echo "  Codex:   ${CODEX_DIR}/skills/${SKILL_NAME}/"
+    echo "  Source:  ${REPO_DIR}"
+    echo "  Codex:   ${CODEX_DIR}/skills/${SKILL_NAME}/ (symlink)"
+    echo "  Claude:  ${CLAUDE_DIR}/skills/${SKILL_NAME}/ (symlink)"
     echo "  Agent:   ctf-reviewer"
-    echo "  Templates: ${AGENTS_DIR}/skills/${SKILL_NAME}/templates/"
+    echo "  Templates: ${REPO_DIR}/templates/"
     echo ""
     echo "Usage: Just say 'Create a Web SSTI Easy challenge' to start!"
     echo ""
     echo "To uninstall:"
-    echo "  rm -rf ${AGENTS_DIR}/skills/${SKILL_NAME}"
+    echo "  rm ${CODEX_DIR}/skills/${SKILL_NAME}"
     echo "  rm ${CLAUDE_DIR}/skills/${SKILL_NAME}"
     echo "  rm ${CLAUDE_DIR}/agents/ctf-reviewer.md"
 else
